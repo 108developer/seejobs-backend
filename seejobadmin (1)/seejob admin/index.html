@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link rel="shortcut icon" href="img/icons/icon-48x48.png" />
+    <link
+      rel="stylesheet"
+      href="https://use.fontawesome.com/releases/v5.14.0/css/all.css"
+      integrity="sha384-HzLeBuhoNPvSl5KYnjx0BT+WB0QEEqLprO+NBkkk5gbc67FTaL7XIGa2w1L0Xbgc"
+      crossorigin="anonymous"
+    />
+    <!-- fontawesom cdn link -->
+    <!-- font -->
+
+    <title>See-job Admin Panel</title>
+
+    <link href="css/app.css" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <!-- sidebar starts from here----- -->
+    <div class="wrapper">
+      <nav id="sidebar" class="sidebar js-sidebar">
+        <div class="sidebar-content js-simplebar">
+          <a class="sidebar-brand" href="index.html">
+            <span class="align-middle">SEEJOB-owner</span>
+          </a>
+
+          <ul class="sidebar-nav">
+            <li class="sidebar-header">Pages</li>
+
+            <li class="sidebar-item active">
+              <a class="sidebar-link" href="index.html">
+                <i class="align-middle" data-feather="sliders"></i>
+                <span class="align-middle">Home</span>
+              </a>
+            </li>
+
+            <li class="sidebar-header">Job Post Data</li>
+
+            <li class="sidebar-item">
+              <a class="sidebar-link" href="pages-profile.html">
+                <i class="align-middle" data-feather="user"></i>
+                <span class="align-middle">Total Job Post</span>
+              </a>
+            </li>
+
+            <li class="sidebar-item">
+              <a class="sidebar-link" href="pages-sign-in.html">
+                <i class="align-middle" data-feather="log-in"></i>
+                <span class="align-middle">Today Job Post</span>
+              </a>
+            </li>
+
+            <li class="sidebar-header">Jobseeker Data</li>
+
+            <li class="sidebar-item">
+              <a class="sidebar-link" href="jobseeker.html">
+                <i class="align-middle" data-feather="user"></i>
+                <span class="align-middle">Total Jobseekers </span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- bell notification code -->
+      <div class="main">
+        <nav class="navbar navbar-expand navbar-light navbar-bg">
+          <a class="sidebar-toggle js-sidebar-toggle">
+            <i class="hamburger align-self-center"></i>
+          </a>
+
+          <div class="navbar-collapse collapse">
+            <ul class="navbar-nav navbar-align">
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-icon dropdown-toggle"
+                  href="#"
+                  id="alertsDropdown"
+                  data-bs-toggle="dropdown"
+                >
+                  <div class="position-relative">
+                    <i class="align-middle" data-feather="bell"></i>
+                    <span class="indicator">1</span>
+                  </div>
+                </a>
+                <div
+                  class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0"
+                  aria-labelledby="alertsDropdown"
+                >
+                  <div class="dropdown-menu-header">1 New Notifications</div>
+                  <div class="list-group">
+                    <a href="#" class="list-group-item">
+                      <div class="row g-0 align-items-center">
+                        <div class="col-2">
+                          <i class="text-warning" data-feather="bell"></i>
+                        </div>
+                        <div class="col-10">
+                          <div class="text-dark">Lorem ipsum</div>
+                          <div class="text-muted small mt-1">
+                            Aliquam ex eros, imperdiet vulputate hendrerit et.
+                          </div>
+                          <div class="text-muted small mt-1">2h ago</div>
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="dropdown-menu-footer">
+                    <a href="#" class="text-muted">Show all notifications</a>
+                  </div>
+                </div>
+              </li>
+
+              <!-- message code -->
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-icon dropdown-toggle"
+                  href="#"
+                  id="messagesDropdown"
+                  data-bs-toggle="dropdown"
+                >
+                  <div class="position-relative">
+                    <i class="align-middle" data-feather="message-square"></i>
+                  </div>
+                </a>
+                <div
+                  class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0"
+                  aria-labelledby="messagesDropdown"
+                >
+                  <div class="dropdown-menu-header">
+                    <div class="position-relative">1 New Messages</div>
+                  </div>
+                  <div class="list-group">
+                    <a href="#" class="list-group-item">
+                      <div class="row g-0 align-items-center">
+                        <div class="col-2">
+                          <img
+                            src="img/avatars/avatar-3.jpg"
+                            class="avatar img-fluid rounded-circle"
+                            alt="Sharon Lessman"
+                          />
+                        </div>
+                        <div class="col-10 ps-2">
+                          <div class="text-dark">Sharon Lessman</div>
+                          <div class="text-muted small mt-1">
+                            Aenean tellus metus, bibendum sed, posuere ac,
+                            mattis non.
+                          </div>
+                          <div class="text-muted small mt-1">5h ago</div>
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="dropdown-menu-footer">
+                    <a href="#" class="text-muted">Show all messages</a>
+                  </div>
+                </div>
+              </li>
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-icon dropdown-toggle d-inline-block d-sm-none"
+                  href="#"
+                  data-bs-toggle="dropdown"
+                >
+                  <i class="align-middle" data-feather="settings"></i>
+                </a>
+
+                <a
+                  class="nav-link dropdown-toggle d-none d-sm-inline-block"
+                  href="#"
+                  data-bs-toggle="dropdown"
+                >
+                  <img
+                    src="http://solvehub.in/seejob/images/gir.jpg"
+                    class="avatar img-fluid rounded me-1"
+                    alt="Charles Hall"
+                  />
+                  <span class="text-dark">Owner Admin</span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end">
+                  <a class="dropdown-item" href="pages-profile.html"
+                    ><i class="align-middle me-1" data-feather="user"></i>
+                    Profile</a
+                  >
+
+                  <div class="dropdown-divider"></div>
+
+                  <a class="dropdown-item" href="#">Log out</a>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </nav>
+
+        <!-- middle code  -->
+        <main class="content">
+          <div class="container-fluid p-0">
+            <h1 class="h3 mb-3"><strong>SeeJob</strong> Home</h1>
+
+            <div class="row">
+              <div class="col-xl-12 col-xxl-5 d-flex">
+                <div class="w-100">
+                  <div class="row">
+                    <div class="col-sm-3">
+                      <div class="card">
+                        <div class="card-body bg-success">
+                          <div class="row">
+                            <div class="col mt-0">
+                              <h5 class="card-title text-dark">
+                                Jobseeker Registered
+                              </h5>
+                            </div>
+                          </div>
+                          <h1
+                            class="mt-1 mb-3 fw-bold"
+                            id="Jobseeker_Registered_Text"
+                          >
+                            Loading...
+                          </h1>
+                          <div class="mb-0"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- col-md-3 -->
+
+                    <div class="col-sm-3">
+                      <div class="card">
+                        <div class="card-body bg-primary">
+                          <div class="row">
+                            <div class="col mt-0">
+                              <h5 class="card-title text-light">
+                                Total Job Posting
+                              </h5>
+                            </div>
+                          </div>
+                          <h1
+                            class="mt-1 mb-3 text-light fw-bold"
+                            id="totalJobPosting"
+                          >
+                            Loading...
+                          </h1>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- col-md-3 -->
+
+                    <div class="col-sm-3">
+                      <div class="card">
+                        <div class="card-body bg-warning text-dark">
+                          <div class="row">
+                            <div class="col mt-0">
+                              <h5 class="card-title text-dark">
+                                Employer Registered
+                              </h5>
+                            </div>
+                          </div>
+                          <h1 class="mt-1 mb-3 fw-bold" id="totalEmployer">
+                            Loading...
+                          </h1>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- col-md-3 -->
+
+                    <div class="col-sm-3">
+                      <div class="card">
+                        <div class="card-body bg-danger">
+                          <div class="row">
+                            <div class="col mt-0">
+                              <h5 class="card-title text-light">
+                                Today's Job posting
+                              </h5>
+                            </div>
+                          </div>
+                          <h1
+                            class="mt-1 mb-3 text-light fw-bold"
+                            id="todaysJobPosting"
+                          >
+                            Loading...
+                          </h1>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- col-md-3 -->
+                  </div>
+                  <!-- row -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- cf -->
+
+          <!-- recent -->
+
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-12 col-lg-6 col-xxl-9">
+                <div class="card flex-fill">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0 text-dark">
+                      Recent Registered User
+                    </h5>
+                    <hr class="" />
+                  </div>
+                  <div class="container" id="adminJobCointainer">
+                    <ol id="jobList">
+                      <!-- <li><p class="fw-bold text-primary"><a href="http://solvehub.in/seejob/candidate-application.html">John Doe - abc@gmail.com - </a><span class="text-secondary"><i class="fas fa-home"></i> Kaithal</span> <br>
+			<span class="text-secondary fw-light">Delhi, near Raj Gali station</span></p>
+		</li>
+
+
+		<li><p class="fw-bold text-primary"><a href="">John Doe - abc@gmail.com - </a><span class="text-secondary"><i class="fas fa-home"></i> Kaithal</span> <br>
+			<span class="text-secondary fw-light">Delhi, near Raj Gali station</span></p>
+		</li>
+
+
+		<li><p class="fw-bold text-primary"><a href="">John Doe - abc@gmail.com - </a><span class="text-secondary"><i class="fas fa-home"></i> Kaithal</span> <br>
+			<span class="text-secondary fw-light">Delhi, near Raj Gali station</span></p>
+		</li>
+
+
+
+		<li><p class="fw-bold text-primary"><a href="">Ram Kumar Singh - abc@gmail.com - </a><span class="text-secondary"><i class="fas fa-home"></i> Kaithal</span> <br>
+			<span class="text-secondary fw-light">Delhi, near Raj Gali station</span></p>
+		</li>
+
+
+		<a href="" class="float-end pb-3">See All users <i class="fas fa-arrow-right"></i></a> -->
+                    </ol>
+                  </div>
+                  <!-- cont -->
+                </div>
+              </div>
+              <div class="col-12 col-lg-6 col-xxl-9">
+                <div class="card flex-fill">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0 text-dark">Recent Jobs Posts</h5>
+                    <hr />
+                  </div>
+
+                  <div class="container-fluid" id="adminJobPost">
+                    <ol class="jobListTow" id="jobListTow">
+                      <li>
+                        <p class="fw-bold text-primary">
+                          <a
+                            href="http://solvehub.in/admin-pannel/plan-inner-page.html"
+                            >Seo Expert - </a
+                          ><span class="text-secondary fw-light"
+                            ><i class="fas fa-bars"></i> Madan Enterprises pvt
+                            Ltd</span
+                          >
+                          <br />
+                          <span class="text-secondary fw-light"
+                            >Delhi, near Raj Gali station</span
+                          >
+                        </p>
+                      </li>
+
+                      <li>
+                        <p class="fw-bold text-primary">
+                          <a href="">Seo Expert - </a
+                          ><span class="text-secondary fw-light"
+                            ><i class="fas fa-bars"></i> Madan Enterprises pvt
+                            Ltd</span
+                          >
+                          <br />
+                          <span class="text-secondary fw-light"
+                            >Delhi, near Raj Gali station</span
+                          >
+                        </p>
+                      </li>
+
+                      <li>
+                        <p class="fw-bold text-primary">
+                          <a href="">Seo Expert - </a
+                          ><span class="text-secondary fw-light"
+                            ><i class="fas fa-bars"></i> Madan Enterprises pvt
+                            Ltd</span
+                          >
+                          <br />
+                          <span class="text-secondary fw-light"
+                            >Delhi, near Raj Gali station</span
+                          >
+                        </p>
+                      </li>
+
+                      <li>
+                        <p class="fw-bold text-primary">
+                          <a href="">Seo Expert - </a
+                          ><span class="text-secondary fw-light"
+                            ><i class="fas fa-bars"></i> Madan Enterprises pvt
+                            Ltd</span
+                          >
+                          <br />
+                          <span class="text-secondary fw-light"
+                            >Delhi, near Raj Gali station</span
+                          >
+                        </p>
+                      </li>
+
+                      <a href="" class="float-end pb-3"
+                        >See All Jobss <i class="fas fa-arrow-right"></i
+                      ></a>
+                    </ol>
+                  </div>
+                  <!-- cont -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <footer class="footer">
+          <div class="container-fluid">
+            <div class="row text-muted">
+              <div class="col-6 text-start">
+                <p class="mb-0">
+                  <a
+                    class="text-muted"
+                    href="https://adminkit.io/"
+                    target="_blank"
+                    ><strong>&copy; SeeJob pvt Ltd.</strong></a
+                  >
+                  &copy;
+                </p>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <script src="js/app.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        const jobSeekerRegisteredText = document.getElementById(
+          "Jobseeker_Registered_Text"
+        );
+        const totalJobPosting = document.getElementById("totalJobPosting");
+        const totalEmployer = document.getElementById("totalEmployer");
+        const todaysJobPosting = document.getElementById("todaysJobPosting");
+
+        try {
+          const [response1, response2, response3, response4] =
+            await Promise.all([
+              fetch("https://seejobs-backend.onrender.com/api/admin/nousers", {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }),
+              fetch("https://seejobs-backend.onrender.com/api/admin/nojobs", {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }),
+              fetch(
+                "https://seejobs-backend.onrender.com/api/admin/noEmployers",
+                {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                }
+              ),
+              fetch("https://seejobs-backend.onrender.com/api/admin/todayjob", {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }),
+            ]);
+
+          const [result1, result2, result3, result4] = await Promise.all([
+            response1.json(),
+            response2.json(),
+            response3.json(),
+            response4.json(),
+          ]);
+
+          if (result1.success) {
+            jobSeekerRegisteredText.textContent = result1.jobs
+              ? `${result1.jobs}`
+              : "0";
+
+            const jobList = document.getElementById("jobList");
+            jobList.innerHTML = "";
+
+            result1.userData.forEach((job) => {
+              const li = document.createElement("li");
+              //   <a href="http://solvehub.in/seejob/candidate-application.html?id=${job._id}">${job.username} - ${job.email} - </a>
+              li.innerHTML = `
+                            <p class="fw-bold text-primary">
+                                 <a href="https://seejob.netlify.app/candidate-application.html?id=${job._id}">${job.username} - ${job.email} - </a>
+                                <span class="text-secondary"><i class="fas fa-home"></i> ${job.location}</span>
+                                <br>
+                                <span class="text-secondary fw-light"> Current Company - ${job.company}</span>
+                            </p>
+                        `;
+              jobList.appendChild(li);
+            });
+          } else {
+            jobSeekerRegisteredText.textContent = "Error loading data";
+          }
+
+          if (result2.success) {
+            totalJobPosting.textContent = result2.jobs
+              ? `${result2.jobs}`
+              : "0";
+
+            const jobListTow = document.getElementById("jobListTow");
+            jobListTow.innerHTML = ""; // Clear any existing content
+
+            result2.jobData.forEach((job) => {
+              const li = document.createElement("li");
+              li.innerHTML = `
+                            <p class="fw-bold text-primary">
+                                <a href="https://seejob.netlify.app/job-internal.html?id=${job._id}">${job.jobTitle} - ${job.hiringForCompanies} - </a>
+                                <br>
+                                <span class="text-secondary"><i class="fas fa-home"></i> ${job.locality}</span>
+                            </p>
+                        `;
+              jobListTow.appendChild(li);
+            });
+          } else {
+            totalJobPosting.textContent = "Error loading data";
+          }
+
+          if (result3.success) {
+            totalEmployer.textContent = result3.jobs ? `${result3.jobs}` : "0";
+          } else {
+            totalEmployer.textContent = "Error loading data";
+          }
+
+          if (result4.success) {
+            todaysJobPosting.textContent = result4.jobs
+              ? `${result4.jobs}`
+              : "0";
+          } else {
+            todaysJobPosting.textContent = "Error loading data";
+          }
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          jobSeekerRegisteredText.textContent = "Error loading data";
+          totalJobPosting.textContent = "Error loading data";
+          totalEmployer.textContent = "Error loading data";
+          todaysJobPosting.textContent = "Error loading data";
+        }
+      });
+    </script>
+  </body>
+</html>
