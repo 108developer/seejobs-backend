@@ -2,12 +2,18 @@
 import express from "express";
 import { applyJobsController } from "../../controllers/jobs/applyJobController.js";
 import {
+  applyToJob,
   getAllJobs,
+  // getJobApplicants,
   getJobById,
   getSearchJobs,
   getSimilarJobs,
   postJob,
   saveJobListing,
+  getJobsPostedByRecruiter,
+  getJobsAppliedByCandidate,
+  getJobsApplications,
+  getJobApplicantsDetail,
 } from "../../controllers/jobs/jobsController.js";
 
 import multer from "multer";
@@ -39,5 +45,17 @@ router.get("/search", getSearchJobs);
 router.post("/apply", upload.single("resume"), applyJobsController);
 
 router.get("/similarjobs/:id", getSimilarJobs);
+
+router.post("/applyToJob", applyToJob);
+
+// router.get("/applicants/:jobId", getJobApplicants);
+
+router.get("/getJobsPostedByRecruiter/:userId", getJobsPostedByRecruiter);
+
+router.get("/getJobsAppliedByCandidate/:userId", getJobsAppliedByCandidate);
+
+router.get("/getJobsApplications/:jobId", getJobsApplications);
+
+router.get("/getJobApplicantsDetail/:jobId", getJobApplicantsDetail);
 
 export default router;

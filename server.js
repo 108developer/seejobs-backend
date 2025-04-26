@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./db/config.js";
 import adminRoutes from "./routers/admin/adminRoutes.js";
+import groupedFilterApi from "./routers/admin/groupedFilterApi.js";
 import authRoutes from "./routers/AuthRoutes.js";
 import candidateAuthRoute from "./routers/candidate/candidateAuthRoute.js";
 import employerAuthRoute from "./routers/employer/employerAuthRoute.js";
@@ -17,6 +18,8 @@ import { graphqlHTTP } from "express-graphql";
 import industriesSchema from "./graphql/industriesSchema.js";
 import locationSchema from "./graphql/locationSchema.js";
 import queriesFilterSchema from "./graphql/queriesFilterSchema.js";
+import candidateSchema from "./graphql/candidateSchema.js";
+import jobApplicationSchema from "./graphql/jobApplicationSchema.js";
 
 import searchQueriesRouter from "./routers/searchQueries.js";
 
@@ -45,6 +48,7 @@ app.use("/api/employerAuthRoute", employerAuthRoute);
 app.use("/api/candidateAuth", authRoutes);
 app.use("/api/jobs", jobsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/groupedFilterApi", groupedFilterApi);
 
 app.use("/searchQueries", searchQueriesRouter);
 
@@ -52,7 +56,13 @@ const PORT = process.env.PORT || 5000;
 
 // Merge all schemas
 const schema = mergeSchemas({
-  schemas: [industriesSchema, locationSchema, queriesFilterSchema],
+  schemas: [
+    industriesSchema,
+    locationSchema,
+    queriesFilterSchema,
+    candidateSchema,
+    jobApplicationSchema,
+  ],
 });
 
 // Setup GraphQL endpoint

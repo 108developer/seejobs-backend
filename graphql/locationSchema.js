@@ -49,6 +49,52 @@ const RootQuery = new GraphQLObjectType({
         }
       },
     },
+    cityStateCountry: {
+      type: new GraphQLList(LocationType),
+      args: { searchTerm: { type: GraphQLString } },
+      resolve(parent, args) {
+        const { searchTerm } = args;
+
+        if (searchTerm) {
+          return Location.aggregate([
+            {
+              $match: {
+                $or: [
+                  { city: { $regex: searchTerm, $options: "i" } },
+                  { state: { $regex: searchTerm, $options: "i" } },
+                  { country: { $regex: searchTerm, $options: "i" } },
+                ],
+              },
+            },
+            {
+              $group: {
+                _id: {
+                  $concat: ["$city", ", ", "$state", ", ", "$country"], // Concatenate city, state, and country into a single string
+                },
+                city: { $first: "$city" },
+                state: { $first: "$state" },
+                country: { $first: "$country" },
+              },
+            },
+            { $sort: { city: 1 } }, // Optionally sort the result
+          ]);
+        } else {
+          return Location.aggregate([
+            {
+              $group: {
+                _id: {
+                  $concat: ["$city", ", ", "$state", ", ", "$country"], // Concatenate city, state, and country into a single string
+                },
+                city: { $first: "$city" },
+                state: { $first: "$state" },
+                country: { $first: "$country" },
+              },
+            },
+            { $sort: { city: 1 } },
+          ]);
+        }
+      },
+    },
   },
 });
 

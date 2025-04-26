@@ -3,7 +3,12 @@
 
 import express from "express";
 import multer from "multer";
-import { login, register } from "../../controllers/employer/employerAuth.js";
+import {
+  getEmployerProfile,
+  login,
+  register,
+  updateRecruiter,
+} from "../../controllers/employer/employerAuth.js";
 
 const router = express.Router();
 
@@ -15,5 +20,7 @@ const upload = multer({ storage }).fields([
 
 router.post("/login", login);
 router.post("/register", register);
+router.get("/getEmployerProfile/:userid", getEmployerProfile);
+router.put("/updateRecruiter/:userid", updateRecruiter);
 
 export default router;

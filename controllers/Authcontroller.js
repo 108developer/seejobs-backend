@@ -175,7 +175,6 @@ export const getSeacthUser = async (req, res) => {
 
 // EDITED
 export const updateUserProfile = async (req, res) => {
-  console.log("Update request received:", req.params);
   const { userid } = req.params;
 
   // Destructure the body data

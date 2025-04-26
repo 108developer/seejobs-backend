@@ -87,10 +87,22 @@ const RootQuery = new GraphQLObjectType({
         return JobType.find();
       },
     },
+    getJobTitle: {
+      type: new GraphQLList(JobTitleType),
+      resolve(parent, args) {
+        return JobTitle.find();
+      },
+    },
     getJobRole: {
       type: new GraphQLList(JobRoleType),
       resolve(parent, args) {
         return JobRole.find();
+      },
+    },
+    getDegree: {
+      type: new GraphQLList(DegreeType),
+      resolve(parent, args) {
+        return Degree.find();
       },
     },
     searchSkills: {
@@ -104,6 +116,23 @@ const RootQuery = new GraphQLObjectType({
           });
         } else {
           return Skill.find();
+        }
+      },
+    },
+    jobTitles: {
+      type: new GraphQLList(JobTitleType),
+      args: { searchTerm: { type: GraphQLString } },
+      resolve(parent, args) {
+        const { searchTerm } = args;
+        if (searchTerm) {
+          return JobTitle.find({
+            $or: [
+              { value: { $regex: searchTerm, $options: "i" } },
+              { label: { $regex: searchTerm, $options: "i" } },
+            ],
+          });
+        } else {
+          return JobTitle.find();
         }
       },
     },
