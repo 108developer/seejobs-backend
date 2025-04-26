@@ -1,112 +1,97 @@
 // controllers/jobController.js
 import JobListing from "../../models/jobs/jobsModel.js";
 
+import Candidate from "../../models/candidate/candidateModel.js";
+import Employer from "../../models/employer/employerModel.js";
+import Application from "../../models/jobs/application.js";
+import mongoose from "mongoose";
+
 // Controller function to save a new job listing
 export const postJob = async (req, res) => {
   const {
-    employerId,
+    userid,
     jobTitle,
+    // jobRole,
+    // category,
+    skills,
     jobType,
-    jobRole,
-    minSalary,
-    maxSalary,
-    minExperience,
-    maxExperience,
-    country,
-    state,
-    city,
     jobDescription,
-    hiringCompany,
-    contactEmail,
-    contactPhone,
+    jobLocation,
+    openings,
+    deadline,
+    // status,
+    monthlySalary,
+    experience,
+    education,
+    companyName,
+    companyEmail,
+    companyPhone,
+    companyWebsite,
+    companyDescription,
+    questions = [],
   } = req.body;
 
   try {
-    if (
-      !employerId ||
-      !jobTitle ||
-      !jobType ||
-      !jobRole ||
-      !minSalary ||
-      !maxSalary ||
-      !minExperience ||
-      !maxExperience ||
-      !country ||
-      !state ||
-      !city ||
-      !jobDescription ||
-      !hiringCompany ||
-      !contactEmail ||
-      !contactPhone
-    ) {
-      const missingFields = [];
-      if (!employerId) missingFields.push("employerId");
-      if (!jobTitle) missingFields.push("jobTitle");
-      if (!jobType) missingFields.push("jobType");
-      if (!jobRole) missingFields.push("jobRole");
-      if (!minSalary) missingFields.push("minSalary");
-      if (!maxSalary) missingFields.push("maxSalary");
-      if (!minExperience) missingFields.push("minExperience");
-      if (!maxExperience) missingFields.push("maxExperience");
-      if (!country) missingFields.push("country");
-      if (!state) missingFields.push("state");
-      if (!city) missingFields.push("city");
-      if (!jobDescription) missingFields.push("jobDescription");
-      if (!hiringCompany) missingFields.push("hiringCompany");
-      if (!contactEmail) missingFields.push("contactEmail");
-      if (!contactPhone) missingFields.push("contactPhone");
+    const missingFields = [];
+
+    if (!userid) missingFields.push("Employer Id");
+    if (!jobTitle) missingFields.push("Job Title");
+    // if (!jobRole) missingFields.push("Job Role");
+    // if (!category) missingFields.push("Category");
+    if (!skills || skills.length === 0) missingFields.push("Skills");
+    if (!jobType || jobType.length === 0) missingFields.push("Job Type");
+    if (!jobDescription) missingFields.push("Job Description");
+    if (!jobLocation) missingFields.push("Job Location");
+    if (typeof openings !== "number" || openings < 1)
+      missingFields.push("Openings must be at least 1");
+    if (!deadline) missingFields.push("Deadline");
+    // if (!status) missingFields.push("Status");
+    if (!monthlySalary?.min) missingFields.push("Min Salary");
+    if (!monthlySalary?.max) missingFields.push("Max Salary");
+    if (!experience?.min) missingFields.push("Min Experience");
+    if (!experience?.max) missingFields.push("Max Experience");
+    if (!education) missingFields.push("Education");
+    if (!companyName) missingFields.push("Company Name");
+    if (!companyEmail) missingFields.push("Company Email");
+    if (!companyPhone) missingFields.push("Company Phone");
+    if (!companyWebsite) missingFields.push("Company Website");
+    if (!companyDescription) missingFields.push("Company Description");
+
+    if (missingFields.length > 0) {
       return res
         .status(400)
-        .json({ message: `Missing fields: ${missingFields.join(", ")}` });
+        .json({ message: `Missing fields:- ${missingFields.join(", ")}` });
     }
 
-    if (
-      !employerId ||
-      !jobTitle ||
-      !jobType ||
-      !jobRole ||
-      !minSalary ||
-      !maxSalary ||
-      !minExperience ||
-      !maxExperience ||
-      !country ||
-      !state ||
-      !city ||
-      !jobDescription ||
-      !hiringCompany ||
-      !contactEmail ||
-      !contactPhone
-    ) {
-      return res.status(400).json({ message: "All fields are required." });
-    }
-
-    // Create new job listing document
     const newJobListing = new JobListing({
-      employerId,
+      employer: userid,
       jobTitle,
+      // jobRole,
+      // category,
+      skillsRequired: skills,
       jobType,
-      role: jobRole,
+      jobDescription,
+      jobLocation,
+      openings,
+      deadline,
+      // status,
       monthlySalary: {
-        min: minSalary,
-        max: maxSalary,
+        min: monthlySalary.min,
+        max: monthlySalary.max,
       },
       experience: {
-        min: minExperience,
-        max: maxExperience,
+        min: experience.min,
+        max: experience.max,
       },
-      country,
-      state,
-      city,
-      jobDescription,
-      hiringForCompanies: hiringCompany,
-      email: contactEmail,
-      phone: contactPhone,
-      category: "",
-      education: [],
-      skills: [],
+      education,
+      companyName,
+      companyEmail,
+      companyPhone,
+      companyWebsite,
+      companyDescription,
+      questions,
     });
 
-    // Save the job listing in the database
     await newJobListing.save();
 
     return res
@@ -118,6 +103,78 @@ export const postJob = async (req, res) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+export const applyToJob = async (req, res) => {
+  console.log("REQ", req.body);
+  const { jobId, candidateId, answers } = req.body;
+
+  try {
+    if (
+      !mongoose.Types.ObjectId.isValid(jobId) ||
+      !mongoose.Types.ObjectId.isValid(candidateId)
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid job or candidate ID." });
+    }
+
+    const job = await JobListing.findById(jobId);
+    const candidate = await Candidate.findById(candidateId);
+
+    if (!job || !candidate) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Job or candidate not found." });
+    }
+
+    // Check if already applied
+    const hasAlreadyApplied = await Application.exists({
+      job: jobId,
+      candidate: candidateId,
+    });
+
+    if (hasAlreadyApplied) {
+      return res.status(409).json({
+        success: false,
+        message: "You have already applied for this job.",
+      });
+    }
+
+    const formattedAnswers = Object.entries(answers).map(
+      ([questionId, answer]) => ({
+        questionId: new mongoose.Types.ObjectId(questionId),
+        answer,
+      })
+    );
+
+    const newApplication = new Application({
+      job: jobId,
+      candidate: candidateId,
+      employer: job.employer,
+      answers: formattedAnswers,
+      // resume,
+      // attachedDocument,
+    });
+
+    await newApplication.save();
+
+    candidate.jobs.appliedJobs.push({
+      job: job._id,
+      status: "pending",
+    });
+
+    await candidate.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Application submitted successfully." });
+  } catch (err) {
+    console.error("Error applying to job:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -148,6 +205,13 @@ export const saveJobListing = async (req, res) => {
 };
 
 export const getAllJobs = async (req, res) => {
+  const convertToLabel = (title) => {
+    const formattedTitle = title
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+    return formattedTitle;
+  };
+
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
@@ -155,47 +219,106 @@ export const getAllJobs = async (req, res) => {
 
     const {
       jobTitle,
-      role,
+      // role,
       salaryMin,
       salaryMax,
       experienceMin,
       experienceMax,
-      country,
-      state,
-      city,
+      location,
+      candidateId,
+      jobTypes,
     } = req.query;
 
-    // Prepare the filter object
     const filter = {};
+    const andConditions = [];
 
-    if (jobTitle) filter.jobTitle = { $regex: jobTitle, $options: "i" }; // case-insensitive regex search
-    if (role) filter.role = role;
-
-    // Check for valid salary values before applying the filter
-    if (!isNaN(salaryMin) && !isNaN(salaryMax)) {
-      const salaryMinValue = parseInt(salaryMin);
-      const salaryMaxValue = parseInt(salaryMax);
-      filter["monthlySalary.min"] = {
-        $gte: salaryMinValue,
-        $lte: salaryMaxValue,
-      };
+    if (jobTitle) {
+      const formattedJobTitle = convertToLabel(jobTitle);
+      andConditions.push({ jobTitle: formattedJobTitle });
     }
 
-    // Check for valid experience values before applying the filter
-    if (!isNaN(experienceMin) && !isNaN(experienceMax)) {
-      filter["experience.min"] = {
-        $gte: parseInt(experienceMin),
-        $lte: parseInt(experienceMax),
-      };
+    // if (role) {
+    //   andConditions.push({ role });
+    // }
+
+    if (jobTypes) {
+      const typesArray = jobTypes.split(",").map((type) => type.trim());
+      if (typesArray.length > 0) {
+        andConditions.push({
+          jobType: { $in: typesArray },
+        });
+      }
     }
 
-    if (country) filter.country = country;
-    if (state) filter.state = state;
-    if (city) filter.city = city;
+    if (location) {
+      andConditions.push({ jobLocation: location });
+    }
 
-    // Pagination logic
+    if (!isNaN(salaryMin)) {
+      const parsedMin = parseInt(salaryMin);
+      andConditions.push({
+        $or: [
+          { "monthlySalary.min": { $gte: parsedMin } },
+          { "monthlySalary.max": { $gte: parsedMin } },
+        ],
+      });
+    }
+    if (!isNaN(salaryMax)) {
+      const parsedMax = parseInt(salaryMax);
+      andConditions.push({ "monthlySalary.max": { $lte: parsedMax } });
+    }
+
+    if (!isNaN(experienceMin)) {
+      const parsedMinExp = parseInt(experienceMin);
+      andConditions.push({
+        $or: [
+          { "experience.min": { $gte: parsedMinExp } },
+          { "experience.max": { $gte: parsedMinExp } },
+        ],
+      });
+    }
+    if (!isNaN(experienceMax)) {
+      const parsedMaxExp = parseInt(experienceMax);
+      andConditions.push({ "experience.max": { $lte: parsedMaxExp } });
+    }
+
+    if (andConditions.length > 0) {
+      filter["$and"] = andConditions;
+    }
+
     const totalJobs = await JobListing.countDocuments(filter);
     const jobs = await JobListing.find(filter).skip(skip).limit(limit).exec();
+
+    if (
+      candidateId &&
+      mongoose.Types.ObjectId.isValid(candidateId) &&
+      candidateId !== "null"
+    ) {
+      const appliedJobs = await Application.find({
+        candidate: candidateId,
+        job: { $in: jobs.map((job) => job._id) },
+      }).select("job");
+
+      const appliedJobIds = appliedJobs.map((app) => app.job.toString());
+
+      const jobsWithAppliedStatus = jobs.map((job) => {
+        return {
+          ...job.toObject(),
+          hasApplied: appliedJobIds.includes(job._id.toString()),
+        };
+      });
+      const totalPages = Math.ceil(totalJobs / limit);
+
+      return res.json({
+        success: true,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalJobs,
+        },
+        data: jobsWithAppliedStatus,
+      });
+    }
 
     const totalPages = Math.ceil(totalJobs / limit);
 
@@ -224,8 +347,6 @@ export const getJobById = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Job not found", job });
     }
-
-    console.log("job", job);
     res.json({ success: true, job });
   } catch (error) {
     console.error("Error fetching job details:", error);
@@ -303,8 +424,6 @@ export const getSearchJobs = async (req, res) => {
       filter.skills = { $in: skills.split(",") }; // Split comma-separated values
     }
 
-    console.log(filter);
-
     // Use Mongoose to search for jobs matching the criteria
     const jobs = await JobListing.find(filter);
 
@@ -352,5 +471,230 @@ export const getSimilarJobs = async (req, res) => {
     res.json({ success: true, similarJobs });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getJobsPostedByRecruiter = async (req, res) => {
+  const { userId } = req.params;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+
+  try {
+    // const employerExist = await Employer.findById(userId);
+    // if (!employerExist) {
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Employer not found" });
+    // }
+
+    const totalJobs = await JobListing.countDocuments({ employer: userId });
+
+    const jobs = await JobListing.find({ employer: userId })
+      .sort({
+        createdAt: -1,
+      })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    return res.status(200).json({
+      success: true,
+      total: totalJobs,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalJobs / limit),
+      },
+      data: jobs,
+    });
+  } catch (error) {
+    console.error("Error fetching posted jobs:", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getJobsAppliedByCandidate = async (req, res) => {
+  const { userId } = req.params;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+
+  try {
+    const candidateExist = await Candidate.findById(userId);
+    if (!candidateExist) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Candidate not found" });
+    }
+
+    const totalApplications = await Application.countDocuments({
+      candidate: userId,
+    });
+
+    const applications = await Application.find({ candidate: userId })
+      .populate("job")
+      .sort({ appliedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    const jobsApplied = applications.map((app) => ({
+      job: app.job,
+      status: app.status,
+      appliedAt: app.appliedAt,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      total: totalApplications,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalApplications / limit),
+      },
+      data: jobsApplied,
+    });
+  } catch (error) {
+    console.error("Error fetching applied jobs:", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getJobApplicantsDetail = async (req, res) => {
+  const { userId } = req.params;
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+
+  try {
+    // const employerExist = await Employer.findById(userId);
+    // if (!employerExist) {
+    //   return res
+    //     .status(404)
+    //     .json({ success: false, message: "Employer not found" });
+    // }
+
+    const totalJobs = await JobListing.countDocuments({ employer: userId });
+
+    const jobs = await JobListing.find({ employer: userId })
+      .sort({
+        createdAt: -1,
+      })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    return res.status(200).json({
+      success: true,
+      total: totalJobs,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalJobs / limit),
+      },
+      data: jobs,
+    });
+  } catch (error) {
+    console.error("Error fetching posted jobs:", error);
+    return res.status(500).json({
+      success: false,
+      error: error,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const getJobsApplications = async (req, res) => {
+  const { jobId } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID.",
+      });
+    }
+
+    // Find applications for this job and populate candidate data
+    const applications = await Application.find({ job: jobId })
+      .populate({
+        path: "candidate",
+        select: `
+          registration.fullName 
+          registration.email 
+          registration.phone 
+          registration.location
+          registration.minexp
+          registration.maxexp
+          registration.skills
+          registration.industry
+          registration.resume
+          jobPreferences.profileTitle 
+          jobPreferences.jobRoles
+          jobPreferences.jobType
+          jobPreferences.preferredJobLocation
+          jobPreferences.gender
+          jobPreferences.dob
+          jobPreferences.currentSalary
+          jobPreferences.expectedSalary
+          jobPreferences.maritalStatus
+          jobPreferences.language
+          jobPreferences.image
+          candidateEducation.highestQualification 
+          candidateEducation.percentage 
+          candidateEducation.boardOfEducation
+          candidateEducation.yearOfEducation
+        `,
+      })
+      .select("candidate appliedAt answers resume attachedDocument status")
+      .exec();
+
+    if (!applications || applications.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No applicants found for this job.",
+      });
+    }
+
+    // Calculate summary stats
+    const statusCounts = {
+      pending: 0,
+      shortlisted: 0,
+      rejected: 0,
+      hired: 0,
+    };
+
+    applications.forEach((app) => {
+      const status = app.status || "pending";
+      if (statusCounts[status] !== undefined) {
+        statusCounts[status]++;
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      totalApplicants: applications.length,
+      statusSummary: statusCounts,
+      applicants: applications.map((app) => ({
+        _id: app._id,
+        appliedAt: app.appliedAt,
+        resume: app.resume,
+        attachedDocument: app.attachedDocument,
+        status: app.status,
+        answers: app.answers,
+        candidate: app.candidate,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching applicants:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };

@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import Employer from "../../models/employer/employerModel.js";
 
 export const register = async (req, res) => {
-  console.log("REQUEST", req.body);
   const {
     firstName,
     lastName,
@@ -112,44 +111,152 @@ export const register = async (req, res) => {
   }
 };
 
-// Employer Login Controller
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
+  if (!email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Email and password are required." });
+  }
+
   try {
-    const employer = await Employer.findOne({ "registration.email": email });
+    const employer = await Employer.findOne({ email: email });
     if (!employer) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(
-      password,
-      employer.registration.password
-    );
+    const isMatch = await bcrypt.compare(password, employer.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
-      { id: employer._id },
-      process.env.JWT_SECRET, // Use your secret key from environment variables
+      { id: employer._id, role: employer.role },
+      process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    res.json({
+    // Respond with the success data
+    return res.json({
       success: true,
       message: "Employer login successful!",
       token,
-      employerId: employer._id,
-      email: employer.registration.email,
-      phone: employer.registration.mobileNumber,
-      firstName: employer.registration.firstName,
-      lastName: employer.registration.lastName,
-      companyName: employer.registration.companyName,
-      role: employer.registration.role,
+      userid: employer._id,
+      email: employer.email,
+      phone: employer.mobileNumber,
+      firstName: employer.firstName,
+      lastName: employer.lastName,
+      companyName: employer.companyName,
+      role: employer.role,
+      expiresIn: "1h",
+    });
+  } catch (error) {
+    console.error("Login Error: ", error);
+    return res.status(500).json({ message: "Failed to log in." });
+  }
+};
+
+export const getEmployerProfile = async (req, res) => {
+  const { userid } = req.params;
+
+  try {
+    const employer = await Employer.findById(userid);
+
+    if (!employer) {
+      return res.status(404).json({ message: "Employer not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Employer Details Received",
+      data: {
+        firstName: employer.firstName,
+        lastName: employer.lastName,
+        email: employer.email,
+        mobileNumber: employer.mobileNumber,
+        location: employer.location,
+        skills: employer.skills,
+        companyName: employer.companyName,
+        designation: employer.designation,
+        address: employer.address,
+        city: employer.city,
+        zipCode: employer.zipCode,
+        state: employer.state,
+        totalExperience: employer.totalExperience,
+        level: employer.level,
+        industry: employer.industry,
+        achievements: employer.achievements,
+        description: employer.description,
+        role: employer.role,
+        createdAt: employer.createdAt,
+        updatedAt: employer.updatedAt,
+      },
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Failed to log in." });
+    res.status(500).json({
+      success: false,
+      message: "Failed to get employer profile",
+    });
+  }
+};
+
+export const updateRecruiter = async (req, res) => {
+  const { userid } = req.params;
+
+  const {
+    firstName,
+    lastName,
+    email,
+    mobileNumber,
+    location,
+    skills,
+    companyName,
+    designation,
+    address,
+    city,
+    zipCode,
+    state,
+    totalExperience,
+    level,
+    industry,
+    achievements,
+    description,
+  } = req.body;
+
+  try {
+    const employer = await Employer.findById(userid);
+
+    if (!employer) {
+      return res.status(404).json({ message: "Employer not found" });
+    }
+
+    employer.firstName = firstName || employer.firstName;
+    employer.lastName = lastName || employer.lastName;
+    employer.email = email || employer.email;
+    employer.mobileNumber = mobileNumber || employer.mobileNumber;
+    employer.location = location || employer.location;
+    employer.skills = skills || employer.skills;
+    employer.companyName = companyName || employer.companyName;
+    employer.designation = designation || employer.designation;
+    employer.address = address || employer.address;
+    employer.city = city || employer.city;
+    employer.zipCode = zipCode || employer.zipCode;
+    employer.state = state || employer.state;
+    employer.totalExperience = totalExperience || employer.totalExperience;
+    employer.level = level || employer.level;
+    employer.industry = industry || employer.industry;
+    employer.achievements = achievements || employer.achievements;
+    employer.description = description || employer.description;
+
+    await employer.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Recruiter details updated successfully!",
+    });
+  } catch (error) {
+    console.error("Error during updating recruiter:", error);
+    res.status(500).json({ message: "Failed to update recruiter details." });
   }
 };

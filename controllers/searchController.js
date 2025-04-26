@@ -24,7 +24,6 @@ const createEntry = async (Model, name) => {
 
 // Search Skills
 export const searchSkills = async (req, res) => {
-  console.log(req.query);
   const { query } = req.query;
   try {
     const results = await Skill.find({

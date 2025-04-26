@@ -58,6 +58,12 @@ const employerSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "employer"],
     },
+    postedJobs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "JobListing",
+      },
+    ],
   },
   {
     timestamps: true,
