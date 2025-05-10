@@ -107,7 +107,6 @@ export const postJob = async (req, res) => {
 };
 
 export const applyToJob = async (req, res) => {
-  console.log("REQ", req.body);
   const { jobId, candidateId, answers } = req.body;
 
   try {
@@ -129,10 +128,12 @@ export const applyToJob = async (req, res) => {
         .json({ success: false, message: "Job or candidate not found." });
     }
 
-    // Check if already applied
+    const jobObjectId = new mongoose.Types.ObjectId(jobId);
+    const candidateObjectId = new mongoose.Types.ObjectId(candidateId);
+
     const hasAlreadyApplied = await Application.exists({
-      job: jobId,
-      candidate: candidateId,
+      job: jobObjectId,
+      candidate: candidateObjectId,
     });
 
     if (hasAlreadyApplied) {
@@ -162,7 +163,8 @@ export const applyToJob = async (req, res) => {
 
     candidate.jobs.appliedJobs.push({
       job: job._id,
-      status: "pending",
+      status: "Pending",
+      appliedDate: newApplication.appliedAt || new Date(),
     });
 
     await candidate.save();
@@ -181,14 +183,7 @@ export const applyToJob = async (req, res) => {
 export const saveJobListing = async (req, res) => {
   try {
     const jobData = req.body;
-
-    // Create a new job listing using the model
     const user = req.email;
-
-    //  const email = JobListing.find({user })
-
-    //  if ( email ) {
-
     const newJobListing = await JobListing.create(jobData);
 
     res.status(201).json({
@@ -197,8 +192,6 @@ export const saveJobListing = async (req, res) => {
       message: "job has been posted successfully",
     });
 
-    // }
-    // res.status(400).json({ success: false, message: "please register email is not valid" });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -251,7 +244,12 @@ export const getAllJobs = async (req, res) => {
     }
 
     if (location) {
-      andConditions.push({ jobLocation: location });
+      andConditions.push({
+        jobLocation: {
+          $regex: location,
+          $options: "i",
+        },
+      });
     }
 
     if (!isNaN(salaryMin)) {
@@ -376,31 +374,31 @@ export const getSearchJobs = async (req, res) => {
     const filter = {};
 
     if (lookingFor) {
-      filter.jobTitle = new RegExp(lookingFor, "i"); // Case-insensitive regex for 'jobTitle'
+      filter.jobTitle = new RegExp(lookingFor, "i");
     }
 
     if (youLiveAt) {
-      filter.locality = new RegExp(youLiveAt, "i"); // Case-insensitive regex for 'locality'
+      filter.locality = new RegExp(youLiveAt, "i"); 
     }
 
     if (role) {
-      filter.role = new RegExp(role, "i"); // Case-insensitive regex for 'role'
+      filter.role = new RegExp(role, "i"); 
     }
 
     if (locality) {
-      filter.locality = new RegExp(locality, "i"); // Case-insensitive regex for 'location'
+      filter.locality = new RegExp(locality, "i"); 
     }
 
     if (category) {
-      filter.category = new RegExp(category, "i"); // Case-insensitive regex for 'category'
+      filter.category = new RegExp(category, "i");
     }
 
     if (salaryMin || salaryMax) {
       if (salaryMin) {
-        filter["monthlySalary.min"] = { $lte: parseFloat(salaryMin) }; // Minimum salary condition
+        filter["monthlySalary.min"] = { $lte: parseFloat(salaryMin) }; 
       }
       if (salaryMax) {
-        filter["monthlySalary.max"] = { $gte: parseFloat(salaryMax) }; // Maximum salary condition
+        filter["monthlySalary.max"] = { $gte: parseFloat(salaryMax) };
       }
     }
 
@@ -409,43 +407,36 @@ export const getSearchJobs = async (req, res) => {
     }
 
     if (education) {
-      filter.education = { $in: education.split(",") }; // Split comma-separated values
+      filter.education = { $in: education.split(",") }; 
     }
 
     if (workShift) {
-      filter.workShift = { $in: workShift.split(",") }; // Split comma-separated values
+      filter.workShift = { $in: workShift.split(",") }; 
     }
 
     if (jobType) {
-      filter.jobType = { $in: jobType.split(",") }; // Split comma-separated values
+      filter.jobType = { $in: jobType.split(",") }; 
     }
 
     if (skills) {
-      filter.skills = { $in: skills.split(",") }; // Split comma-separated values
+      filter.skills = { $in: skills.split(",") }; 
     }
 
-    // Use Mongoose to search for jobs matching the criteria
     const jobs = await JobListing.find(filter);
 
-    // Check if any jobs are found
     if (jobs.length > 0) {
-      // Send the search results as the response
       return res.status(200).send({
         success: true,
         jobs,
       });
     } else {
-      // If no jobs found, send a 404 status response with a message
       return res.status(404).send({
         success: true,
         message: "No jobs found matching your criteria",
       });
     }
   } catch (error) {
-    // Log the error to the console for debugging purposes
     console.error(error);
-
-    // If there's an error, send a 500 status response with an error message
     return res.status(500).send({
       success: false,
       message: "Error in the search job API",

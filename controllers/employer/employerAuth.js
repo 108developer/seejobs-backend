@@ -3,6 +3,35 @@ import bcrypt from "bcryptjs";
 import Employer from "../../models/employer/employerModel.js";
 
 export const register = async (req, res) => {
+  const requiredFields = [
+    "firstName",
+    "lastName",
+    "email",
+    "mobileNumber",
+    "password",
+    "location",
+    "skills",
+    "companyName",
+    "designation",
+    "address",
+    "city",
+    "zipCode",
+    "state",
+    "totalExperience",
+    "level",
+    "industry",
+    "achievements",
+    "description",
+  ];
+
+  const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+  if (missingFields.length > 0) {
+    return res.status(400).json({
+      message: `Missing fields: ${missingFields.join(", ")}`,
+    });
+  }
+
   const {
     firstName,
     lastName,
@@ -25,29 +54,6 @@ export const register = async (req, res) => {
   } = req.body;
 
   try {
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !mobileNumber ||
-      !password ||
-      !location ||
-      !skills ||
-      !companyName ||
-      !designation ||
-      !address ||
-      !city ||
-      !zipCode ||
-      !state ||
-      !totalExperience ||
-      !level ||
-      !industry ||
-      !achievements ||
-      !description
-    ) {
-      return res.status(400).json({ message: "All fields are required." });
-    }
-
     const existingEmployer = await Employer.findOne({
       $or: [{ email: email }, { mobileNumber: mobileNumber }],
     });
@@ -137,7 +143,6 @@ export const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    // Respond with the success data
     return res.json({
       success: true,
       message: "Employer login successful!",

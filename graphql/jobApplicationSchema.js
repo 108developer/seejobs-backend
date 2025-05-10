@@ -1,17 +1,17 @@
 import {
+  GraphQLBoolean,
+  GraphQLFloat,
+  GraphQLID,
+  GraphQLInt,
+  GraphQLList,
   GraphQLObjectType,
   GraphQLSchema,
-  GraphQLBoolean,
   GraphQLString,
-  GraphQLInt,
-  GraphQLID,
-  GraphQLList,
-  GraphQLFloat,
 } from "graphql";
-
-import JobListing from "../models/jobs/jobsModel.js";
-import Application from "../models/jobs/application.js";
 import mongoose from "mongoose";
+import Candidate from "../models/candidate/candidateModel.js";
+import Application from "../models/jobs/application.js";
+import JobListing from "../models/jobs/jobsModel.js";
 
 function calculateAge(dob) {
   const diff = Date.now() - dob.getTime();
@@ -21,18 +21,19 @@ function calculateAge(dob) {
 
 function formatAnswer(answer) {
   if (Array.isArray(answer)) {
-    return answer.join(", "); // Join array values into a single string
+    return answer.join(", ");
   }
   if (answer === null || answer === undefined) {
-    return ""; // Return empty string if null or undefined
+    return "";
   }
-  return answer.toString(); // Ensure it's a string
+  return answer.toString();
 }
 
 const JobApplicationType = new GraphQLObjectType({
   name: "JobApplication",
   fields: {
     id: { type: GraphQLID },
+    candidateId: { type: GraphQLID },
     fullName: { type: GraphQLString },
     email: { type: GraphQLString },
     phone: { type: GraphQLString },
@@ -70,6 +71,7 @@ const JobApplicationType = new GraphQLObjectType({
     attachedDocument: { type: GraphQLString },
     appliedAt: { type: GraphQLString },
     status: { type: GraphQLString },
+    numberOfRecruitersShortlisted: { type: GraphQLInt },
   },
 });
 
@@ -103,6 +105,7 @@ const RootQuery = new GraphQLObjectType({
         gender: { type: GraphQLString },
         ageMin: { type: GraphQLInt },
         ageMax: { type: GraphQLInt },
+        status: { type: GraphQLString },
         page: { type: GraphQLInt },
         limit: { type: GraphQLInt },
       },
@@ -121,6 +124,7 @@ const RootQuery = new GraphQLObjectType({
           degree,
           gender,
           ageMin,
+          status,
           ageMax,
           page = 1,
           limit = 10,
@@ -142,6 +146,12 @@ const RootQuery = new GraphQLObjectType({
           const isNonEmpty = (val) => Array.isArray(val) && val.length > 0;
           const isStringFilled = (str) =>
             typeof str === "string" && str.trim().length > 0;
+
+          if (isStringFilled(status)) {
+            filters.push({
+              status: status,
+            });
+          }
 
           if (isNonEmpty(skills)) {
             filters.push({
@@ -250,14 +260,14 @@ const RootQuery = new GraphQLObjectType({
               },
             },
             { $unwind: "$candidate" },
-            {
-              $lookup: {
-                from: "answers",
-                localField: "answers",
-                foreignField: "_id",
-                as: "answers",
-              },
-            },
+            // {
+            //   $lookup: {
+            //     from: "answers",
+            //     localField: "answers",
+            //     foreignField: "_id",
+            //     as: "answers",
+            //   },
+            // },
           ];
 
           if (filters.length) {
@@ -305,7 +315,6 @@ const RootQuery = new GraphQLObjectType({
             const age = dob ? calculateAge(new Date(dob)) : null;
 
             const answers = (application.answers || []).map((answer) => {
-              // Find the question by questionId
               const question = jobListing.questions.find(
                 (q) => q._id.toString() === answer.questionId.toString()
               );
@@ -319,10 +328,14 @@ const RootQuery = new GraphQLObjectType({
               };
             });
 
+            const numberOfRecruitersShortlisted = c.jobs.shortlistedBy.length;
+
             return {
               id: application._id,
+              candidateId: c._id,
               fullName: c.registration.fullName,
               email: c.registration.email,
+              phone: c.registration.phone,
               jobTitle: c.jobPreferences.profileTitle,
               jobRole: Array.isArray(c.jobPreferences.jobRoles)
                 ? c.jobPreferences.jobRoles[0]
@@ -346,6 +359,7 @@ const RootQuery = new GraphQLObjectType({
               appliedAt: application.appliedAt,
               status: application.status,
               answers,
+              numberOfRecruitersShortlisted,
             };
           });
 
@@ -376,8 +390,105 @@ const RootQuery = new GraphQLObjectType({
   },
 });
 
+const RootMutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    updateJobApplicationStatus: {
+      type: new GraphQLObjectType({
+        name: "UpdateStatusResponse",
+        fields: {
+          success: { type: GraphQLBoolean },
+          message: { type: GraphQLString },
+        },
+      }),
+      args: {
+        applicationId: { type: GraphQLID },
+        status: { type: GraphQLString },
+        recruiterId: { type: GraphQLID },
+      },
+      async resolve(_, { applicationId, status, recruiterId }) {
+        try {
+          const validStatuses = [
+            "Pending",
+            "Viewed",
+            "Hold",
+            "Shortlisted",
+            "Rejected",
+            "Hired",
+          ];
+          const formattedStatus =
+            status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+          if (!validStatuses.includes(formattedStatus)) {
+            return {
+              success: false,
+              message: `Invalid status: ${status}. Valid statuses are ${validStatuses.join(
+                ", "
+              )}.`,
+            };
+          }
+
+          const application = await Application.findById(applicationId);
+
+          if (!application) {
+            return {
+              success: false,
+              message: "Application not found.",
+            };
+          }
+
+          const candidate = await Candidate.findById(application.candidate);
+          if (!candidate) {
+            return {
+              success: false,
+              message: "Candidate not found.",
+            };
+          }
+
+          const appliedJob = candidate.jobs.appliedJobs.find(
+            (job) => job.job.toString() === application.job.toString()
+          );
+
+          if (!appliedJob) {
+            return {
+              success: false,
+              message: "Job application not found in candidate's applied jobs.",
+            };
+          }
+
+          appliedJob.status = formattedStatus;
+
+          if (formattedStatus === "Shortlisted" && recruiterId) {
+            candidate.jobs.shortlistedBy.push({
+              recruiter: recruiterId,
+              job: application.job,
+              date: new Date(),
+            });
+          }
+
+          await candidate.save();
+          application.status = formattedStatus;
+          await application.save();
+
+          return {
+            success: true,
+            message: "Application status updated successfully.",
+          };
+        } catch (error) {
+          console.error("Error updating status:", error);
+          return {
+            success: false,
+            message: "Internal server error.",
+          };
+        }
+      },
+    },
+  },
+});
+
 const schema = new GraphQLSchema({
   query: RootQuery,
+  mutation: RootMutation,
 });
 
 export default schema;

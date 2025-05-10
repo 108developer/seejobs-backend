@@ -10,6 +10,7 @@ import {
 } from "graphql";
 
 import Candidate from "../models/candidate/candidateModel.js";
+import Employer from "../models/employer/employerModel.js";
 
 function calculateAge(dob) {
   const diff = Date.now() - dob.getTime();
@@ -23,6 +24,7 @@ const CandidateType = new GraphQLObjectType({
     id: { type: GraphQLID },
     name: { type: GraphQLString },
     email: { type: GraphQLString },
+    phone: { type: GraphQLString },
     jobTitle: { type: GraphQLString },
     jobRole: { type: GraphQLString },
     skills: { type: new GraphQLList(GraphQLString) },
@@ -43,6 +45,8 @@ const CandidateType = new GraphQLObjectType({
     board: { type: GraphQLString },
     medium: { type: GraphQLString },
     mode: { type: GraphQLString },
+    recruiterStatus: { type: GraphQLString },
+    // status: { type: GraphQLString },
   },
 });
 
@@ -62,6 +66,7 @@ const RootQuery = new GraphQLObjectType({
         },
       }),
       args: {
+        employerId: { type: GraphQLID },
         skills: { type: new GraphQLList(GraphQLString) },
         location: { type: GraphQLString },
         jobTitle: { type: GraphQLString },
@@ -75,12 +80,14 @@ const RootQuery = new GraphQLObjectType({
         gender: { type: GraphQLString },
         ageMin: { type: GraphQLInt },
         ageMax: { type: GraphQLInt },
+        status: { type: GraphQLString },
         page: { type: GraphQLInt },
         limit: { type: GraphQLInt },
       },
       async resolve(_, args) {
         try {
           const {
+            employerId,
             skills,
             location,
             jobTitle,
@@ -94,6 +101,7 @@ const RootQuery = new GraphQLObjectType({
             gender,
             ageMin,
             ageMax,
+            status,
             page = 1,
             limit = 10,
           } = args;
@@ -104,15 +112,41 @@ const RootQuery = new GraphQLObjectType({
           const isStringFilled = (str) =>
             typeof str === "string" && str.trim().length > 0;
 
+          // if (isNonEmpty(skills)) {
+          //   filters["registration.skills"] = { $in: skills };
+          // }
+
           if (isNonEmpty(skills)) {
-            filters["registration.skills"] = { $in: skills };
+            filters["$or"] = skills.map((skill) => ({
+              "registration.skills": {
+                $regex: new RegExp(`^${skill}$`, "i"),
+              },
+            }));
           }
 
+          // if (isStringFilled(location)) {
+          //   filters["registration.location"] = {
+          //     $regex: location,
+          //     $options: "i",
+          //   };
+          // }
+
           if (isStringFilled(location)) {
-            filters["registration.location"] = {
-              $regex: location,
-              $options: "i",
-            };
+            const parts = location.split(",").map((part) => part.trim());
+            const [city, state] = parts;
+
+            filters["$and"] = [
+              {
+                "registration.location": {
+                  $regex: new RegExp(city, "i"),
+                },
+              },
+              {
+                "registration.location": {
+                  $regex: new RegExp(state, "i"),
+                },
+              },
+            ];
           }
 
           if (isStringFilled(jobTitle)) {
@@ -144,58 +178,71 @@ const RootQuery = new GraphQLObjectType({
             filters["jobPreferences.gender"] = gender;
           }
 
-          if (
-            (salaryMin && salaryMin >= 0) ||
-            (salaryMax && salaryMax <= 5000000)
-          ) {
-            filters["$and"] = [];
-
-            if (salaryMin && salaryMax) {
-              filters["$and"].push(
-                {
-                  "jobPreferences.currentSalary": {
-                    $gte: salaryMin,
-                    $lte: salaryMax,
-                  },
+          if (employerId && isStringFilled(args.status)) {
+            const recruiterStatusFilter = {
+              statusBy: {
+                $elemMatch: {
+                  recruiter: employerId,
+                  status: new RegExp(`^${args.status}$`, "i"),
                 },
-                {
-                  "jobPreferences.expectedSalary": {
-                    $gte: salaryMin,
-                    $lte: salaryMax,
-                  },
-                }
-              );
-            } else if (salaryMin) {
-              filters["$and"].push(
-                { "jobPreferences.currentSalary": { $gte: salaryMin } },
-                { "jobPreferences.expectedSalary": { $gte: salaryMin } }
-              );
-            } else if (salaryMax) {
-              filters["$and"].push(
-                { "jobPreferences.currentSalary": { $lte: salaryMax } },
-                { "jobPreferences.expectedSalary": { $lte: salaryMax } }
-              );
-            }
+              },
+            };
+
+            filters.$and = filters.$and
+              ? [...filters.$and, recruiterStatusFilter]
+              : [recruiterStatusFilter];
           }
 
-          if (
-            (experienceMin && experienceMin >= 0) ||
-            (experienceMax && experienceMax <= 50)
-          ) {
-            filters["registration.maxexp"] = {};
-            if (experienceMin && experienceMin >= 0)
-              filters["registration.maxexp"].$gte = experienceMin;
-            if (experienceMax && experienceMax <= 50)
-              filters["registration.maxexp"].$lte = experienceMax;
-          }
+          // // Experience filter
+          // if (
+          //   typeof experienceMin === "number" ||
+          //   typeof experienceMax === "number"
+          // ) {
+          //   const range = {};
+          //   if (typeof experienceMin === "number") range.$gte = experienceMin;
+          //   if (typeof experienceMax === "number") range.$lte = experienceMax;
 
-          if ((ageMin && ageMin >= 0) || (ageMax && ageMax <= 100)) {
-            const ageRange = {};
-            if (ageMin && ageMin >= 0) ageRange.$gte = ageMin;
-            if (ageMax && ageMax <= 100) ageRange.$lte = ageMax;
+          //   filters["registration.maxexp"] = range;
+          // }
 
-            filters["jobPreferences.age"] = ageRange;
-          }
+          // // Age filter
+          // if (typeof ageMin === "number" || typeof ageMax === "number") {
+          //   const range = {};
+          //   if (typeof ageMin === "number") range.$gte = ageMin;
+          //   if (typeof ageMax === "number") range.$lte = ageMax;
+
+          //   filters["jobPreferences.age"] = range;
+          // }
+
+          // // Salary filter
+          // if (typeof salaryMin === "number" || typeof salaryMax === "number") {
+          //   const salaryFilter = [];
+
+          //   if (typeof salaryMin === "number") {
+          //     salaryFilter.push({
+          //       $or: [
+          //         { "jobPreferences.currentSalary": { $gte: salaryMin } },
+          //         { "jobPreferences.expectedSalary": { $gte: salaryMin } },
+          //       ],
+          //     });
+          //   }
+
+          //   if (typeof salaryMax === "number") {
+          //     salaryFilter.push({
+          //       $or: [
+          //         { "jobPreferences.currentSalary": { $lte: salaryMax } },
+          //         { "jobPreferences.expectedSalary": { $lte: salaryMax } },
+          //       ],
+          //     });
+          //   }
+
+          //   // Combine salary filters with $and
+          //   if (salaryFilter.length > 0) {
+          //     filters.$and = filters.$and
+          //       ? [...filters.$and, ...salaryFilter]
+          //       : salaryFilter;
+          //   }
+          // }
 
           const totalCandidates = await Candidate.countDocuments(filters);
 
@@ -216,10 +263,19 @@ const RootQuery = new GraphQLObjectType({
             const dob = c?.jobPreferences?.dob;
             const age = dob ? calculateAge(new Date(dob)) : null;
 
+            let recruiterStatus = null;
+            if (employerId) {
+              const statusEntry = c.statusBy.find(
+                (entry) => entry.recruiter.toString() === employerId
+              );
+              recruiterStatus = statusEntry ? statusEntry.status : null;
+            }
+
             return {
               id: c._id,
               name: c.registration.fullName,
               email: c.registration.email,
+              phone: c.registration.phone,
               jobTitle: c.jobPreferences.profileTitle,
               jobRole: Array.isArray(c.jobPreferences.jobRoles)
                 ? c.jobPreferences.jobRoles[0]
@@ -240,6 +296,7 @@ const RootQuery = new GraphQLObjectType({
               board: c.candidateEducation.boardOfEducation,
               medium: c.candidateEducation.medium,
               mode: c.candidateEducation.educationMode,
+              recruiterStatus,
             };
           });
 
@@ -273,8 +330,97 @@ const RootQuery = new GraphQLObjectType({
   },
 });
 
+const RootMutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    updateCandidateStatus: {
+      type: new GraphQLObjectType({
+        name: "UpdateStatusResponse",
+        fields: {
+          success: { type: GraphQLBoolean },
+          message: { type: GraphQLString },
+        },
+      }),
+      args: {
+        candidateId: { type: GraphQLID },
+        status: { type: GraphQLString },
+        recruiterId: { type: GraphQLID },
+      },
+      async resolve(_, { candidateId, status, recruiterId }) {
+        try {
+          const validStatuses = [
+            "Pending",
+            "Viewed",
+            "Hold",
+            "Shortlisted",
+            "Rejected",
+            "Hired",
+          ];
+          const formattedStatus =
+            status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+          if (!validStatuses.includes(formattedStatus)) {
+            return {
+              success: false,
+              message: `Invalid status: ${status}. Valid statuses are ${validStatuses.join(
+                ", "
+              )}.`,
+            };
+          }
+
+          // const candidate = await Candidate.findById(application.candidate);
+          const candidate = await Candidate.findById(candidateId);
+          if (!candidate) {
+            return {
+              success: false,
+              message: "Candidate not found.",
+            };
+          }
+
+          const existingStatusIndex = candidate.statusBy.findIndex(
+            (entry) => entry.recruiter.toString() === recruiterId
+          );
+
+          if (existingStatusIndex > -1) {
+            // Update existing entry
+            candidate.statusBy[existingStatusIndex].status = formattedStatus;
+            candidate.statusBy[existingStatusIndex].date = new Date();
+          } else {
+            // Add new entry
+            candidate.statusBy.push({
+              recruiter: recruiterId,
+              status: formattedStatus,
+              date: new Date(),
+            });
+          }
+
+          candidate.jobs.appliedJobs.forEach((job) => {
+            if (job.status === "Pending") {
+              job.status = formattedStatus;
+            }
+          });
+
+          await candidate.save();
+
+          return {
+            success: true,
+            message: "Application status updated successfully.",
+          };
+        } catch (error) {
+          console.error("Error updating status:", error);
+          return {
+            success: false,
+            message: "Internal server error.",
+          };
+        }
+      },
+    },
+  },
+});
+
 const schema = new GraphQLSchema({
   query: RootQuery,
+  mutation: RootMutation,
 });
 
 export default schema;

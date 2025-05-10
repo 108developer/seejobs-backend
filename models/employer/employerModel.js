@@ -64,6 +64,12 @@ const employerSchema = new mongoose.Schema(
         ref: "JobListing",
       },
     ],
+    refreshToken: {
+      type: String,
+    },
+    accessToken: {
+      type: String,
+    },
   },
   {
     timestamps: true,
