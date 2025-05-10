@@ -75,11 +75,35 @@ app.use(bodyParser.json());
 
 app.use(morgan("dev"));
 
-app.use(cors());
-
 app.use(express.json());
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://www.seejobs.in",
+  "https://seejobs.in",
+  "*",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error("Not allowed by CORS"));
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+  })
+);
+
 // Static File Serving
+app.get("/", (req, res) => {
+  res
+    .status(200)
+    .json({ message: "Backend Working : CORS-enabled for allowed origins!" });
+});
+
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "seejob", "seejob", "uploads"))
