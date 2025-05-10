@@ -117,7 +117,6 @@ export const getSingleUser = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    console.log("job", user);
     res.json({ success: true, user });
   } catch (error) {
     console.error("Error fetching job details:", error);
@@ -132,7 +131,7 @@ export const getSeacthUser = async (req, res) => {
     const filter = {};
 
     if (role) {
-      filter.industry = new RegExp(role, "i"); // Case-insensitive regex for 'role'
+      filter.industry = new RegExp(role, "i"); 
     }
 
     if (location) {
@@ -177,7 +176,6 @@ export const getSeacthUser = async (req, res) => {
 export const updateUserProfile = async (req, res) => {
   const { userid } = req.params;
 
-  // Destructure the body data
   const {
     username,
     email,
@@ -195,11 +193,10 @@ export const updateUserProfile = async (req, res) => {
     language,
   } = req.body;
 
-  // Handle file uploads (resume and profilePic)
-  const { resume, profilePic } = req.files || {}; // If no files, req.files will be undefined
+
+  const { resume, profilePic } = req.files || {}; 
 
   try {
-    // Find user by ID
     const user = await Register.findById(userid);
     if (!user) {
       return res
@@ -207,17 +204,16 @@ export const updateUserProfile = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Initialize file URLs (keep current ones if no new files uploaded)
     let profilePicUrl = user.profilePic;
     let resumeUrl = user.resume;
 
-    // An array to store promises for file uploads (if files exist)
+  
     const uploadPromises = [];
 
     if (profilePic) {
-      // If profilePic is provided, delete the old one and upload the new one
+
       await deleteFromCloudinary(
-        user.profilePic.split("/").pop().split(".")[0] // Extract the public ID from the URL
+        user.profilePic.split("/").pop().split(".")[0] 
       );
 
       uploadPromises.push(
@@ -232,7 +228,7 @@ export const updateUserProfile = async (req, res) => {
     }
 
     if (resume) {
-      // If resume is provided, delete the old one and upload the new one
+   
       await deleteFromCloudinary(user.resume.split("/").pop().split(".")[0]);
 
       uploadPromises.push(
@@ -246,10 +242,10 @@ export const updateUserProfile = async (req, res) => {
       );
     }
 
-    // Wait for all the file uploads to finish (if any)
+   
     await Promise.all(uploadPromises);
 
-    // Update the user with the new data
+    
     const updatedUser = await Register.findByIdAndUpdate(
       userid,
       {
@@ -267,13 +263,12 @@ export const updateUserProfile = async (req, res) => {
         period: period || user.period,
         age: age || user.age,
         language: language || user.language,
-        profilePic: profilePicUrl, // Update the profilePic URL if it's changed
-        resume: resumeUrl, // Update the resume URL if it's changed
+        profilePic: profilePicUrl, 
+        resume: resumeUrl, 
       },
-      { new: true } // Ensure that we return the updated user
+      { new: true } 
     );
 
-    // Return a success response with the updated user
     res.status(200).json({
       success: true,
       message: "User profile updated successfully",

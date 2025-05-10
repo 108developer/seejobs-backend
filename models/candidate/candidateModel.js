@@ -48,6 +48,86 @@ const candidateSchema = new mongoose.Schema(
       educationMode: { type: String },
     },
 
+    workExperience: [
+      {
+        jobTitle: { type: String },
+        companyName: { type: String },
+        startDate: { type: Date },
+        currentlyEmployed: { type: Boolean, default: false },
+        endDate: { type: Date },
+        jobDescription: { type: String },
+        industry: { type: String },
+        location: { type: String },
+        noticePeriod: {
+          type: String,
+          enum: [
+            "Immediate",
+            "30 Days",
+            "45 Days",
+            "60 Days",
+            "75 Days",
+            "90 Days",
+          ],
+        },
+      },
+    ],
+
+    additionalInfo: {
+      profilePic: { type: String },
+      resume: { type: String },
+      document: { type: String },
+      noticePeriod: { type: String },
+      experience: {
+        years: { type: Number },
+        months: { type: Number },
+      },
+      currentSalary: { type: Number },
+      expectedSalary: { type: Number },
+      terms: { type: Boolean },
+      role: { type: String, default: "candidate" },
+    },
+
+    language: [
+      {
+        languageName: { type: String },
+        proficiency: {
+          type: String,
+          enum: ["Beginner", "Intermediate", "Advanced", "Fluent", "Native"],
+          required: true,
+        },
+      },
+    ],
+
+    status: {
+      isActive: { type: Boolean, default: true },
+      lastLogin: { type: Date },
+    },
+
+    statusBy: [
+      {
+        recruiter: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Employer",
+        },
+        date: {
+          type: Date,
+          default: Date.now,
+        },
+        status: {
+          type: String,
+          enum: [
+            "Pending",
+            "Viewed",
+            "Hold",
+            "Shortlisted",
+            "Rejected",
+            "Hired",
+          ],
+          default: "Pending",
+        },
+      },
+    ],
+
     jobs: {
       appliedJobs: [
         {
@@ -57,8 +137,15 @@ const candidateSchema = new mongoose.Schema(
           },
           status: {
             type: String,
-            enum: ["pending", "shortlisted", "rejected"],
-            default: "pending",
+            enum: [
+              "Pending",
+              "Viewed",
+              "Hold",
+              "Shortlisted",
+              "Rejected",
+              "Hired",
+            ],
+            default: "Pending",
           },
           appliedDate: {
             type: Date,

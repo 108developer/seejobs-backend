@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import moment from "moment";
 import Candidate from "../../models/candidate/candidateModel.js";
+import Application from "../../models/jobs/application.js";
+import JobListing from "../../models/jobs/jobsModel.js";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
@@ -22,58 +24,18 @@ const getCloudinaryPublicId = (url) => {
 
     return match[1];
   } else {
-    console.log("No match found for URL", decodedUrl);
+    console.error("No match found for URL", decodedUrl);
     return null;
   }
 };
 
-const mapCandidateRowToModel = async (row) => {
-  const hashedPassword = await bcrypt.hash(row.password, 10);
-
-  const parsedDOB = moment(row.dob, "DD/MM/YYYY").toDate();
-  const age = moment().diff(parsedDOB, "years");
-
-  return {
-    registration: {
-      fullName: row.fullName,
-      email: row.email,
-      phone: row.phone,
-      password: hashedPassword,
-      location: row.location,
-      permanentAddress: row.permanentAddress,
-      minexp: row.minexp,
-      maxexp: row.maxexp,
-      skills: row.skills?.split(",").map((s) => s.trim()),
-      industry: row.industry,
-      jobDescription: row.jobDescription,
-      role: "candidate",
-    },
-    jobPreferences: {
-      profileTitle: row.profileTitle,
-      jobType: row.jobType,
-      preferredJobLocation: row.preferredJobLocation
-        ?.split(",")
-        .map((loc) => loc.trim()),
-      experienceYears: row.experienceYears,
-      experienceMonths: row.experienceMonths,
-      gender: row.gender,
-      dob: parsedDOB,
-      age: age,
-      maritalStatus: row.maritalStatus,
-      language: row.language,
-      currentSalary: row.currentSalary,
-      expectedSalary: row.expectedSalary,
-    },
-    candidateEducation: {
-      highestQualification: row.highestQualification,
-      medium: row.medium,
-      boardOfEducation: row.boardOfEducation,
-      percentage: row.percentage,
-      yearOfEducation: row.yearOfEducation,
-      educationMode: row.educationMode,
-    },
-  };
-};
+const normalizeList = (value) =>
+  value
+    ? value
+        .split(/[,|&]/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : [];
 
 export const bulkUploadCandidates = bulkUploadHandler(
   [
@@ -108,7 +70,62 @@ export const bulkUploadCandidates = bulkUploadHandler(
   ],
   Candidate,
   "registration.email",
-  mapCandidateRowToModel
+  (row) => {
+    const parseNumber = (val) => {
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    };
+
+    return {
+      registration: {
+        fullName: row.fullName || row.FullName,
+        email: row.email,
+        phone: row.phone || row.Phone,
+        password: row.password || row.Password,
+        location: row.location || row.Location,
+        permanentAddress: row.permanentAddress || row.PermanentAddress,
+        minexp: row.minexp || row.Minexp,
+        maxexp: row.maxexp || row.Maxexp,
+        skills: normalizeList(row.skills || row.Skills),
+        industry: row.industry || row.Industry,
+        jobDescription: row.jobDescription || row.JobDescription,
+        role: "candidate",
+      },
+      jobPreferences: {
+        profileTitle: row.profileTitle || row.ProfileTitle,
+        jobType: row.jobType || row.JobType,
+
+        preferredJobLocation: row.preferredJobLocation
+          ? row.preferredJobLocation
+              .split("&")
+              .map((loc) => loc.trim())
+              .filter(Boolean)
+          : [],
+        gender: row.gender || row.Gender,
+        experience: {
+          years: parseNumber(row.experienceYears || row.ExperienceYears),
+          months: parseNumber(row.experienceMonths || row.ExperienceMonths),
+        },
+        currentSalary: parseNumber(row.currentSalary || row.CurrentSalary),
+        expectedSalary: parseNumber(row.expectedSalary || row.ExpectedSalary),
+        maritalStatus: row.maritalStatus || row.MaritalStatus,
+        language: (row.language || row.Language || "")
+          .split(",")
+          .map((lang) => lang.trim())
+          .filter(Boolean),
+      },
+      candidateEducation: {
+        highestQualification: row.qualification || row.Qualification,
+        medium: row.medium || row.Medium,
+        boardOfEducation: row.boardOfEducation || row.BoardOfEducation,
+        percentage: row.percentage || row.Percentage,
+        yearOfEducation: row.yearOfEducation || row.YearOfEducation,
+        educationMode: row.educationMode || row.EducationMode,
+      },
+      experienceYears: row.experienceYears || row.ExperienceYears,
+      experienceMonths: row.experienceMonths || row.ExperienceMonths,
+    };
+  }
 );
 
 // Modal Sign Up Controller
@@ -142,6 +159,7 @@ export const signup = async (req, res) => {
       },
       jobPreferences: {},
       candidateEducation: {},
+      workExperience: [],
     });
 
     await newCandidate.save();
@@ -217,6 +235,7 @@ export const login = async (req, res) => {
 // Get Single Candidate Profile
 export const getCandidateProfile = async (req, res) => {
   const { candidateId } = req.params;
+  const { jobId } = req.query;
 
   try {
     const candidate = await Candidate.findById(candidateId);
@@ -225,7 +244,7 @@ export const getCandidateProfile = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
-    res.status(200).json({
+    const response = {
       profilePic: candidate.jobPreferences.profilePic || null,
       resume: candidate.registration.resume || null,
       registration: {
@@ -248,7 +267,7 @@ export const getCandidateProfile = async (req, res) => {
         profileTitle: candidate.jobPreferences?.profileTitle || "",
         jobType: candidate.jobPreferences?.jobType || "",
         preferredJobLocation:
-          candidate.jobPreferences?.preferredJobLocation || "",
+          candidate.jobPreferences?.preferredJobLocation || [],
         gender: candidate.jobPreferences?.gender || "male",
         dob: candidate.jobPreferences?.dob || new Date(),
         currentSalary: candidate.jobPreferences?.currentSalary || null,
@@ -266,7 +285,43 @@ export const getCandidateProfile = async (req, res) => {
         yearOfEducation: candidate.candidateEducation?.yearOfEducation || "",
         educationMode: candidate.candidateEducation?.educationMode || "",
       },
-    });
+      workExperience: candidate.workExperience || [],
+    };
+
+    if (jobId) {
+      const application = await Application.findOne({
+        job: jobId,
+        candidate: candidateId,
+      });
+
+      if (!application) {
+        return res
+          .status(404)
+          .json({ message: "Application not found for this job" });
+      }
+
+      const job = await JobListing.findById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      const answers = (application.answers || []).map((answer) => {
+        const question = job.questions.find(
+          (q) => q._id.toString() === answer.questionId.toString()
+        );
+        return {
+          questionId: answer.questionId,
+          questionText: question ? question.questionText : "Unknown Question",
+          answer: Array.isArray(answer.answer)
+            ? answer.answer.join(", ")
+            : answer.answer,
+        };
+      });
+
+      response.questionnaire = answers;
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch candidate profile." });
@@ -477,8 +532,8 @@ export const updateJobPreferences = async (req, res) => {
     language,
     currentSalary,
     expectedSalary,
-    experienceYears,
-    experienceMonths,
+    // experienceYears,
+    // experienceMonths,
   } = req.body;
 
   try {
@@ -493,8 +548,8 @@ export const updateJobPreferences = async (req, res) => {
     if (!language) missingFields.push("language");
     if (!currentSalary) missingFields.push("currentSalary");
     if (!expectedSalary) missingFields.push("expectedSalary");
-    if (!experienceYears) missingFields.push("experienceYears");
-    if (!experienceMonths) missingFields.push("experienceMonths");
+    // if (!experienceYears) missingFields.push("experienceYears");
+    // if (!experienceMonths) missingFields.push("experienceMonths");
 
     if (missingFields.length > 0) {
       return res
@@ -507,19 +562,23 @@ export const updateJobPreferences = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
-    const formattedDob = moment(dob, "DD/MM/YYYY").toDate();
+    const parsedDob = new Date(dob);
+    if (isNaN(parsedDob)) {
+      return res.status(400).json({ message: "Invalid date format for dob" });
+    }
 
-    const calculateAge = moment().diff(formattedDob, "years");
+    const isoDob = parsedDob.toISOString();
+    const age = moment().diff(parsedDob, "years");
 
     candidate.jobPreferences = {
       profileTitle,
       jobType,
       preferredJobLocation,
-      experienceYears,
-      experienceMonths,
+      // experienceYears,
+      // experienceMonths,
       gender,
-      dob: formattedDob,
-      age: calculateAge,
+      dob: isoDob,
+      age,
       maritalStatus,
       language,
       currentSalary,
@@ -633,136 +692,6 @@ export const updateEducationalDetails = async (req, res) => {
     res.status(500).json({ message: "Failed to update educational details." });
   }
 };
-// export const updateCandidateProfile = async (req, res) => {
-//   const { candidateId } = req.params;
-//   const {
-//     fullName,
-//     email,
-//     phone,
-//     location,
-//     minexp,
-//     maxexp,
-//     skills,
-//     industry,
-//     resume,
-//     jobDescription,
-//     terms,
-//     profileTitle,
-//     jobType,
-//     gender,
-//     dob,
-//     maritalStatus,
-//     language,
-//     highestQualification,
-//     medium,
-//     boardOfEducation,
-//     percentage,
-//     yearOfEducation,
-//     educationMode,
-//   } = req.body;
-//   const { profilePic, resumeFile } = req.files || {};
-
-//   try {
-//     const candidate = await Candidate.findById(candidateId);
-//     if (!candidate) {
-//       return res.status(404).json({ message: "Candidate not found" });
-//     }
-
-//     // Extract existing values from the candidate object if not passed
-//     let profilePicUrl = candidate.registration.profilePic;
-//     let resumeUrl = candidate.registration.resume;
-
-//     const updatePromises = [];
-
-//     // Handle file uploads if necessary
-//     if (profilePic) {
-//       await deleteFromCloudinary(
-//         candidate.registration.profilePic.split("/").pop().split(".")[0]
-//       );
-//       updatePromises.push(
-//         uploadToCloudinary(
-//           profilePic[0].buffer,
-//           "see_job_candidate_profile_pictures",
-//           `profilePic_${candidateId}`
-//         ).then((result) => {
-//           profilePicUrl = result.secure_url;
-//         })
-//       );
-//     }
-
-//     if (resumeFile) {
-//       await deleteFromCloudinary(
-//         candidate.registration.resume.split("/").pop().split(".")[0]
-//       );
-//       updatePromises.push(
-//         uploadToCloudinary(
-//           resumeFile[0].buffer,
-//           "see_job_candidate_resumes",
-//           `resume_${candidateId}`
-//         ).then((result) => {
-//           resumeUrl = result.secure_url;
-//         })
-//       );
-//     }
-
-//     await Promise.all(updatePromises);
-
-//     const updatedCandidate = await Candidate.findByIdAndUpdate(
-//       candidateId,
-//       {
-//         registration: {
-//           fullName: fullName || candidate.registration.fullName,
-//           email: email || candidate.registration.email,
-//           phone: phone || candidate.registration.phone,
-//           location: location || candidate.registration.location,
-//           minexp: minexp || candidate.registration.minexp,
-//           maxexp: maxexp || candidate.registration.maxexp,
-//           skills: skills || candidate.registration.skills,
-//           industry: industry || candidate.registration.industry,
-//           resume: resume || candidate.registration.resume,
-//           jobDescription:
-//             jobDescription || candidate.registration.jobDescription,
-//           terms: terms || candidate.registration.terms,
-//         },
-//         jobPreferences: {
-//           profileTitle: profileTitle || candidate.jobPreferences.profileTitle,
-//           jobType: jobType || candidate.jobPreferences.jobType,
-//           gender: gender || candidate.jobPreferences.gender,
-//           dob: dob || candidate.jobPreferences.dob,
-//           maritalStatus:
-//             maritalStatus || candidate.jobPreferences.maritalStatus,
-//           language: language || candidate.jobPreferences.language,
-//         },
-//         candidateEducation: {
-//           highestQualification:
-//             highestQualification ||
-//             candidate.candidateEducation.highestQualification,
-//           medium: medium || candidate.candidateEducation.medium,
-//           boardOfEducation:
-//             boardOfEducation || candidate.candidateEducation.boardOfEducation,
-//           percentage: percentage || candidate.candidateEducation.percentage,
-//           yearOfEducation:
-//             yearOfEducation || candidate.candidateEducation.yearOfEducation,
-//           educationMode:
-//             educationMode || candidate.candidateEducation.educationMode,
-//         },
-//         profilePic: profilePicUrl,
-//         resume: resumeUrl,
-//       },
-//       { new: true }
-//     );
-
-//     res.status(200).json({
-//       message: "Profile updated successfully!",
-//       candidate: updatedCandidate,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Failed to update profile." });
-//   }
-// };
-
-// Get Job Preferences Controller
 
 export const getJobPreferences = async (req, res) => {
   const { candidateId } = req.query;
@@ -822,7 +751,7 @@ export const updateProfilePic = async (req, res) => {
       if (oldProfilePicPublicId) {
         const deleteResult = await deleteFromCloudinary(oldProfilePicPublicId);
       } else {
-        console.log("NOT DELETED");
+        console.error("NOT DELETED");
       }
     }
 
@@ -877,7 +806,7 @@ export const updateResume = async (req, res) => {
       if (oldResumePublicId) {
         const deleteResult = await deleteFromCloudinary(oldResumePublicId);
       } else {
-        console.log("NOT DELETED");
+        console.error("NOT DELETED");
       }
     }
 
@@ -1059,6 +988,48 @@ export const updateSkills = async (req, res) => {
   }
 };
 
+// Work Experience Controllers
+export const getWorkExperience = async (req, res) => {
+  const { candidateId } = req.params;
+
+  try {
+    const candidate = await Candidate.findById(candidateId).select(
+      "workExperience"
+    );
+
+    if (!candidate) {
+      return res.status(404).json({ message: "Candidate not found." });
+    }
+
+    res.status(200).json(candidate.workExperience);
+  } catch (error) {
+    console.error("Error retrieving work experience:", error);
+    res.status(500).json({ message: "Failed to retrieve work experience." });
+  }
+};
+
+export const addWorkExperience = async (req, res) => {
+  const { candidateId } = req.params;
+  const newExperience = req.body;
+
+  try {
+    const candidate = await Candidate.findByIdAndUpdate(
+      candidateId,
+      { $push: { workExperience: newExperience } },
+      { new: true }
+    );
+
+    if (!candidate) {
+      return res.status(404).json({ message: "Candidate not found." });
+    }
+
+    res.status(200).json(candidate);
+  } catch (error) {
+    console.error("Error adding work experience:", error);
+    res.status(500).json({ message: "Failed to add work experience." });
+  }
+};
+
 export const updateWorkExperience = async (req, res) => {
   try {
     const { candidateId } = req.params;
@@ -1072,7 +1043,41 @@ export const updateWorkExperience = async (req, res) => {
       jobDescription,
       industry,
       location,
+      noticePeriod,
     } = req.body;
+
+    const convertToISODate = (date) => {
+      if (!date) return null;
+
+      const parsedDate = new Date(date);
+
+      if (parsedDate instanceof Date && !isNaN(parsedDate)) {
+        return parsedDate.toISOString();
+      }
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (dateRegex.test(date)) {
+        return new Date(date).toISOString();
+      }
+
+      return null;
+    };
+
+    const isoStartDate = convertToISODate(startDate);
+    const isoEndDate = convertToISODate(endDate);
+
+    const allowedNoticePeriods = [
+      "Immediate",
+      "30 Days",
+      "45 Days",
+      "60 Days",
+      "75 Days",
+      "90 Days",
+    ];
+
+    if (noticePeriod && !allowedNoticePeriods.includes(noticePeriod)) {
+      return res.status(400).json({ message: "Invalid notice period value." });
+    }
 
     const updatedCandidate = await Candidate.findByIdAndUpdate(
       candidateId,
@@ -1080,12 +1085,13 @@ export const updateWorkExperience = async (req, res) => {
         $set: {
           "workExperience.$[elem].companyName": companyName,
           "workExperience.$[elem].jobTitle": jobTitle,
-          "workExperience.$[elem].startDate": startDate,
-          "workExperience.$[elem].endDate": endDate,
+          "workExperience.$[elem].startDate": isoStartDate,
+          "workExperience.$[elem].endDate": isoEndDate,
           "workExperience.$[elem].currentlyEmployed": currentlyEmployed,
           "workExperience.$[elem].jobDescription": jobDescription,
           "workExperience.$[elem].industry": industry,
           "workExperience.$[elem].location": location,
+          "workExperience.$[elem].noticePeriod": noticePeriod,
         },
       },
       {
@@ -1102,6 +1108,32 @@ export const updateWorkExperience = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteWorkExperience = async (req, res) => {
+  const { candidateId, experienceId } = req.params;
+
+  try {
+    const candidate = await Candidate.findByIdAndUpdate(
+      candidateId,
+      {
+        $pull: { workExperience: { _id: experienceId } },
+      },
+      { new: true }
+    );
+
+    if (!candidate) {
+      return res.status(404).json({ message: "Candidate not found." });
+    }
+
+    res.status(200).json({
+      message: "Work experience deleted successfully.",
+      updatedWorkExperience: candidate.workExperience,
+    });
+  } catch (error) {
+    console.error("Error deleting work experience:", error);
+    res.status(500).json({ message: "Failed to delete work experience." });
   }
 };
 
