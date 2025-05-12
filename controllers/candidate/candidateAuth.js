@@ -8,7 +8,7 @@ import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../../utils/cloudinary.js";
-import bulkUploadHandler from "../../utils/bulkUploadUtils.js";
+import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
 
 const getCloudinaryPublicId = (url) => {
   const decodedUrl = decodeURIComponent(url);
@@ -37,7 +37,7 @@ const normalizeList = (value) =>
         .filter(Boolean)
     : [];
 
-export const bulkUploadCandidates = bulkUploadHandler(
+export const bulkUploadCandidates = bulkUploadUtils(
   [
     "fullName",
     "email",

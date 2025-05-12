@@ -5,11 +5,10 @@ import JobTitle from "../../models/queriesFilter/jobTitleModel.js";
 import Language from "../../models/queriesFilter/languageModel.js";
 import Location from "../../models/queriesFilter/locationModel.js";
 import Skill from "../../models/queriesFilter/skillModel.js";
-import bulkUploadHandler from "../../utils/bulkUploadUtils.js";
-
+import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
 
 // Skill Endpoints
-export const bulkUploadSkills = bulkUploadHandler(
+export const bulkUploadSkills = bulkUploadUtils(
   ["name"],
   Skill,
   "name",
@@ -138,7 +137,7 @@ export const deleteSkill = async (req, res) => {
 };
 
 // Job Title Endpoints
-export const bulkUploadJobTitles = bulkUploadHandler(
+export const bulkUploadJobTitles = bulkUploadUtils(
   ["label"],
   JobTitle,
   "value",
@@ -281,7 +280,7 @@ export const deleteJobTitle = async (req, res) => {
 };
 
 // Degree Endpoints
-export const bulkUploadDegrees = bulkUploadHandler(
+export const bulkUploadDegrees = bulkUploadUtils(
   ["value", "label"],
   Degree,
   "value",
@@ -415,7 +414,7 @@ export const deleteDegree = async (req, res) => {
 };
 
 // Boards Endpoints
-export const bulkUploadBoards = bulkUploadHandler(
+export const bulkUploadBoards = bulkUploadUtils(
   ["value", "label"],
   Board,
   "value",
@@ -549,7 +548,7 @@ export const deleteBoard = async (req, res) => {
 };
 
 // Industry Endpoints
-export const bulkUploadIndustries = bulkUploadHandler(
+export const bulkUploadIndustries = bulkUploadUtils(
   ["name"],
   Industry,
   "name",
@@ -682,7 +681,7 @@ export const deleteIndustry = async (req, res) => {
 };
 
 // Language Endpoints
-export const bulkUploadLanguages = bulkUploadHandler(
+export const bulkUploadLanguages = bulkUploadUtils(
   ["name"],
   Language,
   "name",
@@ -815,7 +814,7 @@ export const deleteLanguage = async (req, res) => {
 };
 
 // Locations Endpoints
-export const bulkUploadLocations = bulkUploadHandler(
+export const bulkUploadLocations = bulkUploadUtils(
   ["locality", "city", "state", "country", "pincode"],
   Location,
   "pinCode",
