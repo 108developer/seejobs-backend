@@ -81,6 +81,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://www.seejobs.in",
   "https://seejobs.in",
+  "https://see-job-main-fe.vercel.app/",
   "*",
 ];
 
