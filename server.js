@@ -79,8 +79,8 @@ app.use(express.json());
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://www.seejobs.in",
-  "https://seejobs.in",
+  "https://www.seejob.in",
+  "https://seejob.in",
   "https://see-job-main-fe.vercel.app",
   "*",
 ];
