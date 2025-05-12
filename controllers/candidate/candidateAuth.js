@@ -8,7 +8,7 @@ import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../../utils/cloudinary.js";
-import bulkUploadHandler from "../../utils/bulkuploadhandler.js";
+import bulkUploadHandler from "../../utils/bulkUploadUtils.js";
 
 const getCloudinaryPublicId = (url) => {
   const decodedUrl = decodeURIComponent(url);
