@@ -5,7 +5,7 @@ import JobTitle from "../../models/queriesFilter/jobTitleModel.js";
 import Language from "../../models/queriesFilter/languageModel.js";
 import Location from "../../models/queriesFilter/locationModel.js";
 import Skill from "../../models/queriesFilter/skillModel.js";
-import bulkUploadHandler from "../../utils/bulkuploadhandler.js";
+import bulkUploadHandler from "../../utils/bulkUploadUtils.js";
 
 
 // Skill Endpoints
