@@ -77,7 +77,7 @@ const RootQuery = new GraphQLObjectType({
               },
             },
             { $sort: { city: 1 } }, // Optionally sort the result
-          ]);
+          ]).limit(20);
         } else {
           return Location.aggregate([
             {
@@ -91,7 +91,7 @@ const RootQuery = new GraphQLObjectType({
               },
             },
             { $sort: { city: 1 } },
-          ]);
+          ]).limit(20);
         }
       },
     },

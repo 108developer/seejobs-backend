@@ -1,4 +1,3 @@
-// Keep this file
 // path : routers/candidate/candidateAuthRoute.js
 
 import express from "express";
@@ -12,7 +11,6 @@ import {
   saveEducationalDetails,
   saveJobPreferences,
   signup,
-  // updateCandidateProfile,
   updateEducationalDetails,
   updateJobPreferences,
   updateProfilePic,
@@ -31,7 +29,6 @@ const upload = multer({ storage }).fields([
 router.post("/login", login);
 router.post("/signup", signup);
 router.post("/register", upload, register);
-// router.get("/updateCandidateProfile", updateCandidateProfile);
 router.get("/getCandidateProfile/:candidateId", getCandidateProfile);
 
 router.post("/saveJobPreferences", upload, saveJobPreferences);

@@ -1,10 +1,9 @@
 // controllers/jobController.js
-import JobListing from "../../models/jobs/jobsModel.js";
-
-import Candidate from "../../models/candidate/candidateModel.js";
-import Employer from "../../models/employer/employerModel.js";
-import Application from "../../models/jobs/application.js";
 import mongoose from "mongoose";
+import Candidate from "../../models/candidate/candidateModel.js";
+import Application from "../../models/jobs/application.js";
+import JobListing from "../../models/jobs/jobsModel.js";
+import { sendEmail } from "../../services/emailService.js";
 
 // Controller function to save a new job listing
 export const postJob = async (req, res) => {
@@ -94,9 +93,111 @@ export const postJob = async (req, res) => {
 
     await newJobListing.save();
 
-    return res
+    res
       .status(201)
       .json({ success: true, message: "Job posted successfully." });
+
+    const matchingCandidates = await Candidate.find({
+      "registration.skills": { $in: skills },
+    });
+
+    if (matchingCandidates.length > 0) {
+      setImmediate(async () => {
+        for (const candidate of matchingCandidates) {
+          const candidateEmail = candidate?.registration?.email;
+          const subject = `New Job Posting: ${jobTitle}`;
+          const jobUrl = `${process.env.FRONTEND_URL}/Joblisting/${newJobListing._id}`;
+
+          const html = `
+            <html>
+              <head>
+                <style>
+                  body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    margin: 0;
+                    padding: 0;
+                  }
+                  .email-container {
+                    background-color: #ffffff;
+                    max-width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                  }
+                  h1 {
+                    color: #333333;
+                    font-size: 24px;
+                  }
+                  p {
+                    color: #555555;
+                    line-height: 1.5;
+                  }
+                  .cta-button {
+                    display: inline-block;
+                    background-color: #007bff;
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    text-decoration: none;
+                    font-weight: bold;
+                    margin-top: 20px;
+                  }
+                  .cta-button:hover {
+                    background-color: #0056b3;
+                  }
+                  .footer {
+                    text-align: center;
+                    margin-top: 30px;
+                    font-size: 12px;
+                    color: #888888;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="email-container">
+                  <h1>New Job Posting: ${jobTitle}</h1>
+                  <p>Dear ${
+                    candidate?.registration?.fullName || "Candidate"
+                  },</p>
+                  <p>We are excited to inform you about a new job posting that matches your skills. Below are the details:</p>
+                  <h2>Job Details:</h2>
+                  <ul>
+                    <li><strong>Job Title:</strong> ${jobTitle}</li>
+                    <li><strong>Company:</strong> ${companyName}</li>
+                    <li><strong>Location:</strong> ${jobLocation}</li>
+                    <li><strong>Job Description:</strong> ${jobDescription}</li>
+                    <li><strong>Deadline:</strong> ${deadline}</li>
+                  </ul>
+                  <a href="${jobUrl}" class="cta-button" style="background-color: #007BFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Apply Now</a>
+                  <p>We hope this opportunity excites you, and we look forward to your application.</p>
+                  <p>Best regards,<br>The See Job Team<br>
+                  <a href="https://seejob.in" target="_blank" style="color: #007BFF; text-decoration: none;">seejob.in</a>
+                  </p>
+                </div>
+              </body>
+            </html>
+          `;
+
+          const text = `Hi ${
+            candidate?.registration?.fullName || "Candidate"
+          },\n\nWe have a new job posting that matches your skills: ${jobTitle}.\n\nHere are the details:\n\nJob Title: ${jobTitle}\nCompany: ${companyName}\nLocation: ${jobLocation}\nDescription: ${jobDescription}\n\nIf you're interested, apply now! Visit the link below to apply:\n\n${jobUrl}\n\nBest regards,\nThe Team`;
+
+          try {
+            await sendEmail({
+              to: candidateEmail,
+              subject,
+              text,
+              html,
+            });
+            console.log(`Email sent to ${candidateEmail}`);
+          } catch (error) {
+            console.error(`Failed to send email to ${candidateEmail}:`, error);
+          }
+        }
+      });
+    }
   } catch (error) {
     console.error("Error", error);
     return res.status(500).json({
@@ -191,7 +292,6 @@ export const saveJobListing = async (req, res) => {
       data: newJobListing,
       message: "job has been posted successfully",
     });
-
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -378,15 +478,15 @@ export const getSearchJobs = async (req, res) => {
     }
 
     if (youLiveAt) {
-      filter.locality = new RegExp(youLiveAt, "i"); 
+      filter.locality = new RegExp(youLiveAt, "i");
     }
 
     if (role) {
-      filter.role = new RegExp(role, "i"); 
+      filter.role = new RegExp(role, "i");
     }
 
     if (locality) {
-      filter.locality = new RegExp(locality, "i"); 
+      filter.locality = new RegExp(locality, "i");
     }
 
     if (category) {
@@ -395,7 +495,7 @@ export const getSearchJobs = async (req, res) => {
 
     if (salaryMin || salaryMax) {
       if (salaryMin) {
-        filter["monthlySalary.min"] = { $lte: parseFloat(salaryMin) }; 
+        filter["monthlySalary.min"] = { $lte: parseFloat(salaryMin) };
       }
       if (salaryMax) {
         filter["monthlySalary.max"] = { $gte: parseFloat(salaryMax) };
@@ -407,19 +507,19 @@ export const getSearchJobs = async (req, res) => {
     }
 
     if (education) {
-      filter.education = { $in: education.split(",") }; 
+      filter.education = { $in: education.split(",") };
     }
 
     if (workShift) {
-      filter.workShift = { $in: workShift.split(",") }; 
+      filter.workShift = { $in: workShift.split(",") };
     }
 
     if (jobType) {
-      filter.jobType = { $in: jobType.split(",") }; 
+      filter.jobType = { $in: jobType.split(",") };
     }
 
     if (skills) {
-      filter.skills = { $in: skills.split(",") }; 
+      filter.skills = { $in: skills.split(",") };
     }
 
     const jobs = await JobListing.find(filter);

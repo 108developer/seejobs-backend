@@ -1,19 +1,19 @@
 // graphql/queriesFilterSchema.js
 
 import {
+  GraphQLID,
+  GraphQLList,
   GraphQLObjectType,
   GraphQLSchema,
   GraphQLString,
-  GraphQLList,
-  GraphQLID,
 } from "graphql";
-import Skill from "../models/queriesFilter/skillModel.js";
-import JobTitle from "../models/queriesFilter/jobTitleModel.js";
 import Degree from "../models/queriesFilter/degreeModel.js";
+import JobRole from "../models/queriesFilter/jobRoleModel.js";
+import JobTitle from "../models/queriesFilter/jobTitleModel.js";
+import JobType from "../models/queriesFilter/jobTypeModel.js";
 import Medium from "../models/queriesFilter/mediumModel.js";
 import PercentageRange from "../models/queriesFilter/percentageRangeModel.js";
-import JobType from "../models/queriesFilter/jobTypeModel.js";
-import JobRole from "../models/queriesFilter/jobRoleModel.js";
+import Skill from "../models/queriesFilter/skillModel.js";
 
 // Define GraphQL types
 const SkillType = new GraphQLObjectType({
@@ -124,16 +124,16 @@ const RootQuery = new GraphQLObjectType({
       args: { searchTerm: { type: GraphQLString } },
       resolve(parent, args) {
         const { searchTerm } = args;
-        if (searchTerm) {
-          return JobTitle.find({
-            $or: [
-              { value: { $regex: searchTerm, $options: "i" } },
-              { label: { $regex: searchTerm, $options: "i" } },
-            ],
-          });
-        } else {
-          return JobTitle.find();
-        }
+        const query = searchTerm
+          ? {
+              $or: [
+                { value: { $regex: searchTerm, $options: "i" } },
+                { label: { $regex: searchTerm, $options: "i" } },
+              ],
+            }
+          : {};
+
+        return JobTitle.find(query).limit(20);
       },
     },
     searchJobTitles: {

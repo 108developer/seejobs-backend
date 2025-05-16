@@ -1,6 +1,14 @@
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import Employer from "../../models/employer/employerModel.js";
+import Otp from "../../models/otp.js";
+import { sendEmail } from "../../services/emailService.js";
+import {
+  deleteOTP,
+  generateOTP,
+  getStoredOTP,
+  storeOTP,
+} from "../../services/otpService.js";
 
 export const register = async (req, res) => {
   const requiredFields = [
@@ -263,5 +271,100 @@ export const updateRecruiter = async (req, res) => {
   } catch (error) {
     console.error("Error during updating recruiter:", error);
     res.status(500).json({ message: "Failed to update recruiter details." });
+  }
+};
+
+export const sendEmployerOtp = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Email Required" });
+
+  const existingEmployer = await Employer.findOne({
+    email: email,
+  });
+
+  if (!existingEmployer) {
+    return res.status(400).json({ message: "Email does not exist" });
+  }
+
+  const identifier = `employer:${email}`;
+
+  const existingOtp = await Otp.findOne({ identifier });
+  if (existingOtp) {
+    const now = new Date();
+    const expiresAt = new Date(existingOtp.expiresAt);
+    const remainingTime = Math.max(0, expiresAt - now);
+
+    return res.status(400).json({
+      message: "OTP already sent. Please wait before retrying.",
+      remainingTime,
+    });
+  }
+
+  const otp = generateOTP();
+  await storeOTP(`employer:${email}`, otp);
+
+  await sendEmail({
+    to: email,
+    subject: "OTP Verification",
+    html: `<p>Your OTP is <strong>${otp}</strong></p>`,
+  });
+
+  res.json({ success: true, message: `OTP sent to ${email}` });
+};
+
+export const verifyEmployerOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Email Required" });
+
+  const existingEmployer = await Employer.findOne({
+    email: email,
+  });
+
+  if (!existingEmployer) {
+    return res.status(400).json({ message: "Email does not exist" });
+  }
+
+  const storedOtp = await getStoredOTP(`employer:${email}`);
+
+  if (!storedOtp)
+    return res.status(400).json({ message: "Otp expired or not found" });
+
+  if (storedOtp !== otp)
+    return res.status(400).json({ message: "Invalid OTP. OTP did not match." });
+
+  await deleteOTP(`employer:${email}`);
+  res.json({ success: true, message: "Candidate OTP verified successfully" });
+};
+
+export const resetEmployerPassword = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password)
+    return res.status(400).json({ mesage: "Email or Password missing" });
+
+  try {
+    const existingEmployer = await Employer.findOne({
+      email: email,
+    });
+
+    if (!existingEmployer) {
+      return res.status(400).json({ message: "Email does not exist" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    existingEmployer.password = hashedPassword;
+
+    await existingEmployer.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

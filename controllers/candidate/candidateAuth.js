@@ -4,11 +4,19 @@ import moment from "moment";
 import Candidate from "../../models/candidate/candidateModel.js";
 import Application from "../../models/jobs/application.js";
 import JobListing from "../../models/jobs/jobsModel.js";
+import Otp from "../../models/otp.js";
+import { sendEmail } from "../../services/emailService.js";
+import {
+  deleteOTP,
+  generateOTP,
+  getStoredOTP,
+  storeOTP,
+} from "../../services/otpService.js";
+import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../../utils/cloudinary.js";
-import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
 
 const getCloudinaryPublicId = (url) => {
   const decodedUrl = decodeURIComponent(url);
@@ -831,6 +839,102 @@ export const updateResume = async (req, res) => {
   } catch (error) {
     console.error("Error during resume update:", error);
     res.status(500).json({ message: "Failed to update resume." });
+  }
+};
+
+// Forgot Password
+export const sendCandidateOtp = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) res.status(400).json({ message: "Email reqired" });
+
+  const existingCandidate = await Candidate.findOne({
+    "registration.email": email,
+  });
+
+  if (!existingCandidate) {
+    return res.status(400).json({ message: "Email does not exist" });
+  }
+
+  const identifier = `candidate:${email}`;
+
+  const existingOtp = await Otp.findOne({ identifier });
+  if (existingOtp) {
+    const now = new Date();
+    const expiresAt = new Date(existingOtp.expiresAt);
+    const remainingTime = Math.max(0, expiresAt - now);
+
+    return res.status(400).json({
+      message: "OTP already sent. Please wait before retrying.",
+      remainingTime,
+    });
+  }
+
+  const otp = generateOTP();
+  await storeOTP(`candidate:${email}`, otp);
+
+  await sendEmail({
+    to: email,
+    subject: "OTP Verification",
+    html: `<p>Your OTP is <strong>${otp}</strong></p>`,
+  });
+
+  res.json({ success: true, message: `OTP send to ${email}` });
+};
+
+export const verifyCandidateOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email) res.status(400).json({ message: "Email reqired" });
+
+  const existingCandidate = await Candidate.findOne({
+    "registration.email": email,
+  });
+
+  if (!existingCandidate) {
+    return res.status(400).json({ message: "Email does not exist" });
+  }
+
+  const storedOtp = await getStoredOTP(`candidate:${email}`);
+
+  if (!storedOtp)
+    return res.status(400).json({ message: "OTP expired or not found" });
+
+  if (storedOtp !== otp)
+    return res.status(400).json({ message: "Invalid OTP. OTP did not match." });
+
+  await deleteOTP(`candidate:${email}`);
+  res.json({ success: true, message: "Candidate OTP verified successfully" });
+};
+
+export const resetCandidatePassword = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password)
+    return res.status(400).json({ mesage: "Email or Password missing" });
+
+  try {
+    const existingCandidate = await Candidate.findOne({
+      "registration.email": email,
+    });
+
+    if (!existingCandidate) {
+      return res.status(400).json({ message: "Email does not exist" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    existingCandidate.registration.password = hashedPassword;
+
+    await existingCandidate.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
