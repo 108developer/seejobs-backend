@@ -13,16 +13,18 @@ import {
   getWorkExperience,
   login,
   register,
+  resetCandidatePassword,
   saveEducationalDetails,
   saveJobPreferences,
+  sendCandidateOtp,
   signup,
-  // updateCandidateProfile,
   updateEducationalDetails,
   updateJobPreferences,
   updateProfilePic,
   updateRegistration,
   updateResume,
   updateWorkExperience,
+  verifyCandidateOtp,
 } from "../../controllers/candidate/candidateAuth.js";
 
 const router = express.Router();
@@ -41,7 +43,6 @@ router.post("/bulkUploadCandidates", uploadFiles, bulkUploadCandidates);
 router.post("/login", login);
 router.post("/signup", signup);
 router.post("/register", upload, register);
-// router.get("/updateCandidateProfile", updateCandidateProfile);
 router.get("/getCandidateProfile/:candidateId", getCandidateProfile);
 
 router.post("/saveJobPreferences", upload, saveJobPreferences);
@@ -65,5 +66,10 @@ router.delete(
   "/deleteWorkExperience/:candidateId/:experienceId",
   deleteWorkExperience
 );
+
+// Forgot Password
+router.post("/sendCandidateOtp", sendCandidateOtp);
+router.post("/verifyCandidateOtp", verifyCandidateOtp);
+router.post("/resetCandidatePassword", resetCandidatePassword);
 
 export default router;

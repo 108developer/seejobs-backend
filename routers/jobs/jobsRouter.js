@@ -4,16 +4,16 @@ import { applyJobsController } from "../../controllers/jobs/applyJobController.j
 import {
   applyToJob,
   getAllJobs,
+  getJobApplicantsDetail,
   // getJobApplicants,
   getJobById,
+  getJobsApplications,
+  getJobsAppliedByCandidate,
+  getJobsPostedByRecruiter,
   getSearchJobs,
   getSimilarJobs,
   postJob,
   saveJobListing,
-  getJobsPostedByRecruiter,
-  getJobsAppliedByCandidate,
-  getJobsApplications,
-  getJobApplicantsDetail,
 } from "../../controllers/jobs/jobsController.js";
 
 import multer from "multer";
