@@ -1,7 +1,7 @@
-import path from "path";
-import xlsx from "xlsx";
 import csv from "csv-parser";
+import path from "path";
 import { Readable } from "stream";
+import xlsx from "xlsx";
 
 export const bulkUploadUtils = (
   expectedHeaders,
@@ -50,7 +50,7 @@ export const bulkUploadUtils = (
             .on("error", reject);
         });
 
-      if (fileExtension === ".xlsx") {
+      if (fileExtension === ".xlsx" || fileExtension === ".xls") {
         parsedData = await parseExcel();
       } else if (fileExtension === ".csv") {
         parsedData = await parseCSV();
@@ -85,24 +85,32 @@ export const bulkUploadUtils = (
         await Model.insertMany(newRecords, { ordered: false });
         res.status(201).json({
           success: true,
-          message: `${newRecords.length} record(s) uploaded successfully!`,
+          message: `${newRecords.length} record(s) uploaded successfully. ${
+            duplicateRecords.length
+              ? `${duplicateRecords.length} duplicate(s) skipped.`
+              : ""
+          }`,
           data: newRecords,
           duplicates: duplicateRecords,
         });
       } catch (error) {
-        if (error.code === 11000) {
+        if (
+          error.name === "BulkWriteError" &&
+          error.writeErrors?.some((e) => e.code === 11000)
+        ) {
           console.error("Duplicate key error:", error.message);
           return res.status(400).json({
             message:
               "Some records already exist in the database and were skipped.",
-            error: error.message,
+            error: error.message ?? "Duplicate key error",
             duplicates: duplicateRecords,
           });
         }
-        console.error("InsertMany error:", error);
+        console.error("InsertMany error:", error.message);
         res.status(500).json({
-          message: "Failed to upload data due to insertion error.",
-          error: error.message,
+          message:
+            "Failed to upload data due to insertion error. Data already exist.",
+          error: error.message ?? "Unexpected server error",
         });
       }
     } catch (error) {

@@ -58,12 +58,20 @@ import { getTokensFromDB } from "./services/tokenService.js";
 import { getUserInfo } from "./utils/googleUtils.js";
 import { google } from "googleapis";
 
+// ──────────────────────────────────────────────────
+// Plan Expiration Cron Job
+// ──────────────────────────────────────────────────
+import { startPlanExpiryCron } from "./controllers/admin/recruiters.js";
+
 /* ─────────────────────────────────────────────
  *                App Setup
  * ───────────────────────────────────────────── */
 const app = express();
 
 connectDB();
+
+// Start the cron job
+startPlanExpiryCron();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
