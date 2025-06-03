@@ -91,6 +91,16 @@ export const createSeo = async (req, res) => {
       structuredData,
     } = req.body;
 
+    // Validate required fields
+    if (!page || !metaTitle || !metaDescription || !metaKeywords) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "page, metaTitle, metaDescription, and metaKeywords are required.",
+      });
+    }
+
+    // Check for duplicate page or title
     const existingPage = await Seo.findOne({ page });
     if (existingPage) {
       return res
@@ -103,16 +113,44 @@ export const createSeo = async (req, res) => {
       return res.status(400).json({ message: "SEO title already exists" });
     }
 
+    // Only accept valid robots values, otherwise use default
+    const validRobots = [
+      "index, follow",
+      "noindex, follow",
+      "index, nofollow",
+      "noindex, nofollow",
+    ];
+
+    const sanitizedRobots = validRobots.includes(robots)
+      ? robots
+      : "index, follow";
+
+    // Sanitize optional fields
+    const sanitizedOg = {
+      title: og?.title || "",
+      description: og?.description || "",
+      url: og?.url || "",
+      type: og?.type || "",
+      image: og?.image || "",
+    };
+
+    const sanitizedTwitter = {
+      card: twitter?.card || "",
+      title: twitter?.title || "",
+      description: twitter?.description || "",
+      image: twitter?.image || "",
+    };
+
     const newSeo = new Seo({
       page,
       metaTitle,
       metaDescription,
       metaKeywords,
-      canonicalUrl,
-      robots,
-      og,
-      twitter,
-      structuredData,
+      canonicalUrl: canonicalUrl || "",
+      robots: sanitizedRobots,
+      og: sanitizedOg,
+      twitter: sanitizedTwitter,
+      structuredData: structuredData || "",
     });
 
     await newSeo.save();
@@ -134,8 +172,8 @@ export const createSeo = async (req, res) => {
 // UPDATE SEO
 export const updateSeo = async (req, res) => {
   try {
+    const { page } = req.params;
     const {
-      page,
       metaTitle,
       metaDescription,
       metaKeywords,
@@ -187,7 +225,7 @@ export const updateSeo = async (req, res) => {
 // DELETE SEO
 export const deleteSeo = async (req, res) => {
   try {
-    const { page } = req.body;
+    const { page } = req.params;
 
     const existingPage = await Seo.findOne({ page });
     if (!existingPage) {

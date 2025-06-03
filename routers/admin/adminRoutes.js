@@ -6,6 +6,10 @@ import {
   currentUsers,
   createSeo,
   getTodaysJobPostings,
+  getSeo,
+  getSeoByPage,
+  updateSeo,
+  deleteSeo,
 } from "../../controllers/admin/adminCotroller.js";
 import {
   getAllJobs,
@@ -19,7 +23,12 @@ import {
 
 const router = express.Router();
 
-router.post("/createSeo", createSeo);
+router.get("/seo", getSeo);
+router.get("/seo/:page", getSeoByPage);
+router.post("/seo", createSeo);
+router.put("/seo/:page", updateSeo);
+router.delete("/seo/:page", deleteSeo);
+
 router.post("/adminLogin", adminLogin);
 router.get("/getAllJobs", getAllJobs);
 

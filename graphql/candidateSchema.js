@@ -368,7 +368,6 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          // const candidate = await Candidate.findById(application.candidate);
           const candidate = await Candidate.findById(candidateId);
           if (!candidate) {
             return {

@@ -10,6 +10,7 @@ import {
 } from "graphql";
 import mongoose from "mongoose";
 import Candidate from "../models/candidate/candidateModel.js";
+import Employer from "../models/employer/employerModel.js";
 import Application from "../models/jobs/application.js";
 import JobListing from "../models/jobs/jobsModel.js";
 
@@ -464,6 +465,51 @@ const RootMutation = new GraphQLObjectType({
               job: application.job,
               date: new Date(),
             });
+          }
+
+          const employer = await Employer.findById(recruiterId);
+          if (!employer) {
+            return {
+              success: false,
+              message: "Employer not found.",
+            };
+          }
+
+          if (formattedStatus === "Viewed") {
+            const subscription = employer.subscription;
+
+            if (!subscription) {
+              return {
+                success: false,
+                message:
+                  "You have reached your resume view limit. Please buy a subscription to view more resumes.",
+              };
+            }
+
+            if (subscription.status !== "Active") {
+              return {
+                success: false,
+                message:
+                  "Your subscription is not active. Please renew to view resumes.",
+              };
+            }
+
+            if (subscription.allowedResume <= 0) {
+              return {
+                success: false,
+                message:
+                  "You have reached your resume view limit. Please buy a subscription to view more resumes.",
+              };
+            }
+
+            subscription.allowedResume -= 1;
+
+            if (subscription.allowedResume === 0) {
+              subscription.plan = "Free";
+              subscription.status = "Expired";
+            }
+
+            await employer.save();
           }
 
           await candidate.save();
