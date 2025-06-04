@@ -12,7 +12,10 @@ import {
   getStoredOTP,
   storeOTP,
 } from "../../services/otpService.js";
-import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
+import {
+  bulkUploadCandidatesUtils,
+  bulkUploadUtils,
+} from "../../utils/bulkUploadUtils.js";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
@@ -45,39 +48,19 @@ const normalizeList = (value) =>
         .filter(Boolean)
     : [];
 
-export const bulkUploadCandidates = bulkUploadUtils(
+export const bulkUploadCandidates = bulkUploadCandidatesUtils(
   [
     "fullName",
     "email",
     "phone",
-    // "password",
     "location",
     "permanentAddress",
-    // "minexp",
-    // "maxexp",
     "skills",
-    // "industry",
-    // "jobDescription",
-    // "profileTitle",
-    // "jobType",
     "preferredJobLocation",
     "experienceYears",
-    // "experienceMonths",
     "gender",
-    // "dob",
-    // "maritalStatus",
-    // "language",
-    "currentSalary",
-    // "expectedSalary",
-    "highestQualification",
-    // "medium",
-    // "boardOfEducation",
-    // "percentage",
-    // "yearOfEducation",
-    // "educationMode",
   ],
   Candidate,
-  "registration.email",
   (row) => {
     const parseNumber = (val) => {
       const num = Number(val);
@@ -89,20 +72,12 @@ export const bulkUploadCandidates = bulkUploadUtils(
         fullName: row?.fullName || row?.FullName,
         email: row?.email,
         phone: row?.phone || row?.Phone,
-        // password: row?.password || row?.Password,
         location: row?.location || row?.Location,
         permanentAddress: row?.permanentAddress || row?.PermanentAddress,
-        // minexp: row?.minexp || row?.Minexp,
-        // maxexp: row?.maxexp || row?.Maxexp,
         skills: normalizeList(row?.skills || row?.Skills),
-        // industry: row?.industry || row?.Industry,
-        // jobDescription: row?.jobDescription || row?.JobDescription,
         role: "candidate",
       },
       jobPreferences: {
-        // profileTitle: row?.profileTitle || row?.ProfileTitle,
-        // jobType: row?.jobType || row?.JobType,
-
         preferredJobLocation: row?.preferredJobLocation
           ? row?.preferredJobLocation
               .split("&")
@@ -114,24 +89,11 @@ export const bulkUploadCandidates = bulkUploadUtils(
           years: parseNumber(row?.experienceYears || row?.ExperienceYears),
           months: parseNumber(row?.experienceMonths || row?.ExperienceMonths),
         },
-        // currentSalary: parseNumber(row?.currentSalary || row?.CurrentSalary),
-        // expectedSalary: parseNumber(row?.expectedSalary || row?.ExpectedSalary),
-        // maritalStatus: row?.maritalStatus || row?.MaritalStatus,
-        // language: (row?.language || row?.Language || "")
-        //   .split(",")
-        //   .map((lang) => lang.trim())
-        //   .filter(Boolean),
       },
       candidateEducation: {
         highestQualification: row?.qualification || row?.Qualification,
-        // medium: row?.medium || row?.Medium,
-        // boardOfEducation: row?.boardOfEducation || row?.BoardOfEducation,
-        // percentage: row?.percentage || row?.Percentage,
-        // yearOfEducation: row?.yearOfEducation || row?.YearOfEducation,
-        // educationMode: row?.educationMode || row?.EducationMode,
       },
       experienceYears: row?.experienceYears || row?.ExperienceYears,
-      // experienceMonths: row?.experienceMonths || row?.ExperienceMonths,
     };
   }
 );
