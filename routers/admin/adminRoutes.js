@@ -1,20 +1,31 @@
 import express from "express";
 import {
   adminLogin,
+  createSeo,
   currentEmlpoyers,
   currentJobs,
   currentUsers,
-  createSeo,
-  getTodaysJobPostings,
+  deleteSeo,
   getSeo,
   getSeoByPage,
+  getTodaysJobPostings,
   updateSeo,
-  deleteSeo,
 } from "../../controllers/admin/adminCotroller.js";
+import {
+  createContact,
+  getContact,
+  updateContact,
+  contactEnquiery,
+} from "../../controllers/admin/contactController.js";
 import {
   getAllJobs,
   getAllJobSeekers,
 } from "../../controllers/admin/job-seekers.js";
+import {
+  createOrReplacePage,
+  getPage,
+  updatePage,
+} from "../../controllers/admin/pageController.js";
 import {
   getAllRecruiters,
   sendNewsLetter,
@@ -41,5 +52,14 @@ router.get("/getAllJobSeekers", getAllJobSeekers);
 router.get("/getAllRecruiters", getAllRecruiters);
 router.post("/updatePlan", updatePlan);
 router.post("/sendNewsLetter", sendNewsLetter);
+
+router.get("/pages/:type", getPage);
+router.post("/pages/:type", createOrReplacePage);
+router.put("/pages/:type", updatePage);
+
+router.get("/contact", getContact);
+router.post("/contact", createContact);
+router.put("/contact", updateContact);
+router.post("/contactEnquiery", contactEnquiery);
 
 export default router;
