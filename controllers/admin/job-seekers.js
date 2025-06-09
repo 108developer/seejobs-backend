@@ -75,8 +75,8 @@ export const getAllJobs = async (req, res) => {
       page = 1,
       limit = 20,
       search = "",
-      sortBy = "jobTitle",
-      sortOrder = "asc",
+      sortBy = "updatedAt",
+      sortOrder = "desc",
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
