@@ -17,7 +17,7 @@ export const postJob = async (req, res) => {
     jobDescription,
     jobLocation,
     openings,
-    deadline,
+    // deadline,
     // status,
     monthlySalary,
     experience,
@@ -43,7 +43,7 @@ export const postJob = async (req, res) => {
     if (!jobLocation) missingFields.push("Job Location");
     if (typeof openings !== "number" || openings < 1)
       missingFields.push("Openings must be at least 1");
-    if (!deadline) missingFields.push("Deadline");
+    // if (!deadline) missingFields.push("Deadline");
     // if (!status) missingFields.push("Status");
     if (!monthlySalary?.min) missingFields.push("Min Salary");
     if (!monthlySalary?.max) missingFields.push("Max Salary");
@@ -72,7 +72,7 @@ export const postJob = async (req, res) => {
       jobDescription,
       jobLocation,
       openings,
-      deadline,
+      // deadline,
       // status,
       monthlySalary: {
         min: monthlySalary.min,
@@ -168,7 +168,6 @@ export const postJob = async (req, res) => {
                     <li><strong>Company:</strong> ${companyName}</li>
                     <li><strong>Location:</strong> ${jobLocation}</li>
                     <li><strong>Job Description:</strong> ${jobDescription}</li>
-                    <li><strong>Deadline:</strong> ${deadline}</li>
                   </ul>
                   <a href="${jobUrl}" class="cta-button" style="background-color: #007BFF; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Apply Now</a>
                   <p>We hope this opportunity excites you, and we look forward to your application.</p>
@@ -385,7 +384,11 @@ export const getAllJobs = async (req, res) => {
     }
 
     const totalJobs = await JobListing.countDocuments(filter);
-    const jobs = await JobListing.find(filter).skip(skip).limit(limit).exec();
+    const jobs = await JobListing.find(filter)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
 
     if (
       candidateId &&
