@@ -41,7 +41,6 @@ const CandidateType = new GraphQLObjectType({
     matchedSkills: { type: new GraphQLList(GraphQLString) },
     unmatchedSkills: { type: new GraphQLList(GraphQLString) },
     matchedSkillsCount: { type: GraphQLInt },
-    degree: { type: GraphQLString },
     board: { type: GraphQLString },
     medium: { type: GraphQLString },
     mode: { type: GraphQLString },
@@ -63,6 +62,10 @@ const RootQuery = new GraphQLObjectType({
           currentPage: { type: GraphQLInt },
           totalPages: { type: GraphQLInt },
           candidates: { type: new GraphQLList(CandidateType) },
+          viewedCount: { type: GraphQLInt },
+          shortlistedCount: { type: GraphQLInt },
+          rejectedCount: { type: GraphQLInt },
+          holdCount: { type: GraphQLInt },
         },
       }),
       args: {
@@ -106,6 +109,11 @@ const RootQuery = new GraphQLObjectType({
             limit = 10,
           } = args;
 
+          let viewedCount = 0;
+          let shortlistedCount = 0;
+          let rejectedCount = 0;
+          let holdCount = 0;
+
           const filters = {};
 
           const isNonEmpty = (val) => Array.isArray(val) && val.length > 0;
@@ -116,12 +124,35 @@ const RootQuery = new GraphQLObjectType({
           //   filters["registration.skills"] = { $in: skills };
           // }
 
-          if (isNonEmpty(skills)) {
-            filters["$or"] = skills.map((skill) => ({
-              "registration.skills": {
-                $regex: new RegExp(`^${skill}$`, "i"),
-              },
-            }));
+          // if (isNonEmpty(skills)) {
+          //   filters["$or"] = skills.map((skill) => ({
+          //     "registration.skills": {
+          //       $regex: new RegExp(`^${skill}$`, "i"),
+          //     },
+          //   }));
+          // }
+
+          if (Array.isArray(skills) && skills.length > 0) {
+            const filtersForSkillsAndTitles = [];
+
+            for (const keyword of skills) {
+              if (typeof keyword === "string" && keyword.trim() !== "") {
+                const regex = new RegExp(keyword.trim(), "i");
+
+                filtersForSkillsAndTitles.push(
+                  { "registration.skills": { $in: [regex] } },
+                  { "jobPreferences.profileTitle": { $regex: regex } },
+                  { "workExperience.jobTitle": { $regex: regex } }
+                );
+              }
+            }
+
+            if (filtersForSkillsAndTitles.length > 0) {
+              if (!filters.$or) {
+                filters.$or = [];
+              }
+              filters.$or.push(...filtersForSkillsAndTitles);
+            }
           }
 
           // if (isStringFilled(location)) {
@@ -149,12 +180,12 @@ const RootQuery = new GraphQLObjectType({
             ];
           }
 
-          if (isStringFilled(jobTitle)) {
-            filters["jobPreferences.profileTitle"] = {
-              $regex: jobTitle,
-              $options: "i",
-            };
-          }
+          // if (isStringFilled(jobTitle)) {
+          //   filters["jobPreferences.profileTitle"] = {
+          //     $regex: jobTitle,
+          //     $options: "i",
+          //   };
+          // }
 
           if (isStringFilled(jobRole)) {
             filters["jobPreferences.jobRoles"] = {
@@ -244,6 +275,97 @@ const RootQuery = new GraphQLObjectType({
           //   }
           // }
 
+          // Clone and strip status condition from filters for count aggregation
+          const countFilters = JSON.parse(JSON.stringify(filters));
+
+          // Remove statusBy.status filter from countFilters
+          if (countFilters.$and) {
+            countFilters.$and = countFilters.$and.filter((clause) => {
+              if (
+                clause.statusBy &&
+                clause.statusBy.$elemMatch &&
+                clause.statusBy.$elemMatch.status
+              ) {
+                return false; // Remove the status-specific condition
+              }
+              return true;
+            });
+
+            if (countFilters.$and.length === 0) {
+              delete countFilters.$and;
+            }
+          }
+
+          const matchStage = { $match: countFilters };
+
+          const unwindStage = { $unwind: "$statusBy" };
+
+          const groupStage = {
+            $group: {
+              _id: "$statusBy.status",
+              count: { $sum: 1 },
+            },
+          };
+
+          const aggregation = await Candidate.aggregate([
+            // matchStage,
+            unwindStage,
+            groupStage,
+          ]);
+
+          for (const item of aggregation) {
+            switch (item._id) {
+              case "Viewed":
+                viewedCount = item.count;
+                break;
+              case "Shortlisted":
+                shortlistedCount = item.count;
+                break;
+              case "Rejected":
+                rejectedCount = item.count;
+                break;
+              case "Hold":
+                holdCount = item.count;
+                break;
+            }
+          }
+
+          // --------------------------------------------------
+          // --------------------------------------------------
+          // ---------------  THIS IS CORRECT  ----------------
+          // ---------------  SALARY FILTER    ----------------
+          // --------------------------------------------------
+          // --------------------------------------------------
+          // Salary filter
+          if (typeof salaryMin === "number" || typeof salaryMax === "number") {
+            const salaryFilter = [];
+
+            if (typeof salaryMin === "number") {
+              salaryFilter.push({
+                $or: [
+                  { "jobPreferences.currentSalary": { $gte: salaryMin } },
+                  { "jobPreferences.expectedSalary": { $gte: salaryMin } },
+                ],
+              });
+            }
+
+            if (typeof salaryMax === "number") {
+              salaryFilter.push({
+                $or: [
+                  { "jobPreferences.currentSalary": { $lte: salaryMax } },
+                  { "jobPreferences.expectedSalary": { $lte: salaryMax } },
+                ],
+              });
+            }
+
+            // Combine salary filters with $and
+            if (salaryFilter.length > 0) {
+              filters.$and = filters.$and
+                ? [...filters.$and, ...salaryFilter]
+                : salaryFilter;
+            }
+          }
+
           const totalCandidates = await Candidate.countDocuments(filters);
 
           const candidates = await Candidate.find(filters)
@@ -313,6 +435,10 @@ const RootQuery = new GraphQLObjectType({
             currentPage: page,
             totalPages: Math.ceil(totalCandidates / limit),
             candidates: sortedCandidates,
+            viewedCount,
+            shortlistedCount,
+            rejectedCount,
+            holdCount,
           };
         } catch (err) {
           console.error("❌ Error in getAllCandidates:", err);
@@ -356,6 +482,7 @@ const RootMutation = new GraphQLObjectType({
             "Rejected",
             "Hired",
           ];
+
           const formattedStatus =
             status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -374,6 +501,58 @@ const RootMutation = new GraphQLObjectType({
               success: false,
               message: "Candidate not found.",
             };
+          }
+
+          const employer = await Employer.findById(recruiterId);
+          if (!employer) {
+            return {
+              success: false,
+              message: "Employer not found.",
+            };
+          }
+
+          const requiresViewLimit = [
+            "Viewed",
+            "Shortlisted",
+            "Rejected",
+            "Hold",
+          ];
+          const subscription = employer.subscription;
+
+          if (requiresViewLimit.includes(formattedStatus)) {
+            if (!subscription) {
+              return {
+                success: false,
+                message:
+                  "No active subscription. Please subscribe to view resumes.",
+              };
+            }
+
+            if (subscription.status !== "Active") {
+              return {
+                success: false,
+                message:
+                  "Your subscription is not active. Please renew to continue.",
+              };
+            }
+
+            if (subscription.allowedResume <= 0) {
+              return {
+                success: false,
+                message:
+                  "You have reached your resume view limit. Please upgrade your plan.",
+              };
+            }
+
+            subscription.allowedResume -= 1;
+            subscription.viewedResume = (subscription.viewedResume || 0) + 1;
+
+            if (subscription.allowedResume === 0) {
+              subscription.status = "Expired";
+              subscription.plan = "Free";
+            }
+
+            await employer.save();
           }
 
           const existingStatusIndex = candidate.statusBy.findIndex(

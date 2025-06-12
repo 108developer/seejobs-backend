@@ -33,6 +33,15 @@ const JobTitleType = new GraphQLObjectType({
   },
 });
 
+const SearchResultType = new GraphQLObjectType({
+  name: "SearchResult",
+  fields: {
+    _id: { type: GraphQLID },
+    type: { type: GraphQLString },
+    name: { type: GraphQLString },
+  },
+});
+
 const DegreeType = new GraphQLObjectType({
   name: "Degree",
   fields: {
@@ -117,6 +126,61 @@ const RootQuery = new GraphQLObjectType({
         } else {
           return Skill.find();
         }
+      },
+    },
+    searchAll: {
+      type: new GraphQLList(SearchResultType),
+      args: { query: { type: GraphQLString } },
+      async resolve(parent, args) {
+        const { query } = args;
+
+        if (!query) {
+          return [];
+        }
+
+        const regex = new RegExp(query, "i");
+        const startsWithRegex = new RegExp("^" + query, "i");
+
+        const [skills, jobTitles, jobRoles] = await Promise.all([
+          Skill.find({ name: regex }).lean(),
+          JobTitle.find({
+            $or: [{ value: regex }, { label: regex }],
+          }).lean(),
+          JobRole.find({ name: regex }).lean(),
+        ]);
+
+        // const allResults = [
+        //   ...skills.map((s) => ({ type: "Skill", name: s.name })),
+        //   ...jobTitles.map((j) => ({
+        //     type: "JobTitle",
+        //     name: j.label || j.value,
+        //   })),
+        //   ...jobRoles.map((r) => ({ type: "JobRole", name: r.name })),
+        // ];
+
+        const allResults = [
+          ...skills.map((s) => ({ _id: s._id, type: "Skill", name: s.name })),
+          ...jobTitles.map((j) => ({
+            _id: j._id,
+            type: "JobTitle",
+            name: j.label || j.value,
+          })),
+          ...jobRoles.map((r) => ({
+            _id: r._id,
+            type: "JobRole",
+            name: r.label || r.value,
+          })),
+        ];
+
+        const sortedResults = allResults.sort((a, b) => {
+          const aStarts = startsWithRegex.test(a.name);
+          const bStarts = startsWithRegex.test(b.name);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return a.name.localeCompare(b.name);
+        });
+
+        return sortedResults;
       },
     },
     jobTitles: {
