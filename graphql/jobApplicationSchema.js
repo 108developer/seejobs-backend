@@ -34,6 +34,7 @@ const JobApplicationType = new GraphQLObjectType({
   name: "JobApplication",
   fields: {
     id: { type: GraphQLID },
+    recruiterId: { type: GraphQLID },
     candidateId: { type: GraphQLID },
     fullName: { type: GraphQLString },
     email: { type: GraphQLString },
@@ -89,9 +90,14 @@ const RootQuery = new GraphQLObjectType({
           currentPage: { type: GraphQLInt },
           totalPages: { type: GraphQLInt },
           jobApplications: { type: new GraphQLList(JobApplicationType) },
+          shortlistedCount: { type: GraphQLInt },
+          viewedCount: { type: GraphQLInt },
+          rejectedCount: { type: GraphQLInt },
+          holdCount: { type: GraphQLInt },
         },
       }),
       args: {
+        recruiterId: { type: GraphQLID },
         jobId: { type: GraphQLID },
         skills: { type: new GraphQLList(GraphQLString) },
         location: { type: GraphQLString },
@@ -112,6 +118,7 @@ const RootQuery = new GraphQLObjectType({
       },
       async resolve(_, args) {
         const {
+          recruiterId,
           jobId,
           skills,
           location,
@@ -139,6 +146,11 @@ const RootQuery = new GraphQLObjectType({
           };
         }
 
+        let viewedCount = 0;
+        let shortlistedCount = 0;
+        let rejectedCount = 0;
+        let holdCount = 0;
+
         try {
           const filters = [];
 
@@ -154,25 +166,68 @@ const RootQuery = new GraphQLObjectType({
             });
           }
 
-          if (isNonEmpty(skills)) {
-            filters.push({
-              "candidate.registration.skills": { $in: skills },
-            });
+          if (Array.isArray(skills) && skills.length > 0) {
+            const filtersForSkillsAndTitles = [];
+
+            for (const keyword of skills) {
+              if (typeof keyword === "string" && keyword.trim() !== "") {
+                const regex = new RegExp(keyword.trim(), "i");
+
+                filtersForSkillsAndTitles.push(
+                  { "candidate.registration.skills": { $in: [regex] } },
+                  {
+                    "candidate.jobPreferences.profileTitle": { $regex: regex },
+                  },
+                  { "candidate.workExperience.jobTitle": { $regex: regex } }
+                );
+              }
+            }
+
+            if (filtersForSkillsAndTitles.length > 0) {
+              filters.push({ $or: filtersForSkillsAndTitles });
+            }
           }
+
+          // if (isNonEmpty(skills)) {
+          //   filters.push({
+          //     "candidate.registration.skills": { $in: skills },
+          //   });
+          // }
+
+          // if (isStringFilled(jobTitle)) {
+          //   filters.push({
+          //     "candidate.jobPreferences.profileTitle": {
+          //       $regex: jobTitle,
+          //       $options: "i",
+          //     },
+          //   });
+          // }
+
+          // if (Array.isArray(skills) && skills.length > 0) {
+          //   const skillNames = skills
+          //     .filter((s) => s.type === "Skill")
+          //     .map((s) => s.name);
+          //   const jobTitles = skills
+          //     .filter((s) => s.type === "JobTitle")
+          //     .map((s) => s.name);
+
+          //   if (skillNames.length > 0) {
+          //     filters.push({
+          //       "candidate.registration.skills": { $in: skillNames },
+          //     });
+          //   }
+
+          //   if (jobTitles.length > 0) {
+          //     filters.push({
+          //       "candidate.jobPreferences.profileTitle": { $in: jobTitles },
+          //     });
+          //   }
+          // }
 
           if (isStringFilled(location)) {
             filters.push({
               "candidate.registration.location": {
                 $regex: location,
-                $options: "i",
-              },
-            });
-          }
-
-          if (isStringFilled(jobTitle)) {
-            filters.push({
-              "candidate.jobPreferences.profileTitle": {
-                $regex: jobTitle,
                 $options: "i",
               },
             });
@@ -219,36 +274,129 @@ const RootQuery = new GraphQLObjectType({
             filters.push({ "candidate.jobPreferences.age": ageRange });
           }
 
-          const salaryConditions = [];
-          if (salaryMin) {
-            filters.push({
-              $or: [
-                {
-                  "candidate.jobPreferences.currentSalary": {
-                    $lt: salaryMin,
+          // --------------------------------------------------
+          // --------------------------------------------------
+          // ---------------  THIS IS CORRECT  ----------------
+          // ---------------  SALARY FILTER    ----------------
+          // --------------------------------------------------
+          // --------------------------------------------------
+
+          // Salary filter
+          if (typeof salaryMin === "number" || typeof salaryMax === "number") {
+            const salaryFilter = [];
+
+            if (typeof salaryMin === "number") {
+              salaryFilter.push({
+                $or: [
+                  {
+                    "candidate.jobPreferences.currentSalary": {
+                      $gte: salaryMin,
+                    },
                   },
-                },
-                {
-                  "candidate.jobPreferences.expectedSalary": {
-                    $lt: salaryMin,
+                  {
+                    "candidate.jobPreferences.expectedSalary": {
+                      $gte: salaryMin,
+                    },
                   },
-                },
-              ],
-            });
+                ],
+              });
+            }
+
+            if (typeof salaryMax === "number") {
+              salaryFilter.push({
+                $or: [
+                  {
+                    "candidate.jobPreferences.currentSalary": {
+                      $lte: salaryMax,
+                    },
+                  },
+                  {
+                    "candidate.jobPreferences.expectedSalary": {
+                      $lte: salaryMax,
+                    },
+                  },
+                ],
+              });
+            }
+
+            if (salaryFilter.length > 0) {
+              filters.push(...salaryFilter);
+            }
           }
 
-          if (salaryMax) {
-            salaryConditions.push({
-              "candidate.jobPreferences.currentSalary": { $lte: salaryMax },
-            });
-            salaryConditions.push({
-              "candidate.jobPreferences.expectedSalary": { $lte: salaryMax },
-            });
+          if (recruiterId && mongoose.Types.ObjectId.isValid(recruiterId)) {
+            const matchStage = { $match: { $and: filters } };
+
+            const unwindStage = { $unwind: "$statusBy" };
+
+            const matchRecruiterStage = {
+              $match: {
+                "statusBy.recruiter": new mongoose.Types.ObjectId(recruiterId),
+              },
+            };
+
+            const groupStage = {
+              $group: {
+                _id: "$statusBy.status",
+                count: { $sum: 1 },
+              },
+            };
+
+            const aggregation = await Candidate.aggregate([
+              matchStage,
+              unwindStage,
+              matchRecruiterStage,
+              groupStage,
+            ]);
+
+            for (const item of aggregation) {
+              switch (item._id) {
+                case "Viewed":
+                  viewedCount = item.count;
+                  break;
+                case "Shortlisted":
+                  shortlistedCount = item.count;
+                  break;
+                case "Rejected":
+                  rejectedCount = item.count;
+                  break;
+                case "Hold":
+                  holdCount = item.count;
+                  break;
+              }
+            }
           }
 
-          if (salaryConditions.length) {
-            filters.push({ $and: salaryConditions });
-          }
+          // const salaryConditions = [];
+          // if (salaryMin) {
+          //   filters.push({
+          //     $or: [
+          //       {
+          //         "candidate.jobPreferences.currentSalary": {
+          //           $lt: salaryMin,
+          //         },
+          //       },
+          //       {
+          //         "candidate.jobPreferences.expectedSalary": {
+          //           $lt: salaryMin,
+          //         },
+          //       },
+          //     ],
+          //   });
+          // }
+
+          // if (salaryMax) {
+          //   salaryConditions.push({
+          //     "candidate.jobPreferences.currentSalary": { $lte: salaryMax },
+          //   });
+          //   salaryConditions.push({
+          //     "candidate.jobPreferences.expectedSalary": { $lte: salaryMax },
+          //   });
+          // }
+
+          // if (salaryConditions.length) {
+          //   filters.push({ $and: salaryConditions });
+          // }
 
           const basePipeline = [
             { $match: { job: new mongoose.Types.ObjectId(jobId) } },
@@ -376,6 +524,10 @@ const RootQuery = new GraphQLObjectType({
             totalApplications: totalCount,
             currentPage: page,
             totalPages: Math.ceil(totalCount / limit),
+            shortlistedCount,
+            viewedCount,
+            rejectedCount,
+            holdCount,
             jobApplications: sortedJobApplications,
           };
         } catch (err) {
