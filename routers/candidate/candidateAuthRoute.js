@@ -36,9 +36,10 @@ const upload = multer({ storage }).fields([
 ]);
 
 const uploadFiles = multer({ storage }).single("file");
+const uploadMultipleFiles = multer({ storage }).array("file", 10);
 
 // Skill Routes
-router.post("/bulkUploadCandidates", uploadFiles, bulkUploadCandidates);
+router.post("/bulkUploadCandidates", uploadMultipleFiles, bulkUploadCandidates);
 
 router.post("/login", login);
 router.post("/signup", signup);

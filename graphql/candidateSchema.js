@@ -62,6 +62,7 @@ const RootQuery = new GraphQLObjectType({
           currentPage: { type: GraphQLInt },
           totalPages: { type: GraphQLInt },
           candidates: { type: new GraphQLList(CandidateType) },
+          totalCount: { type: GraphQLInt },
           viewedCount: { type: GraphQLInt },
           shortlistedCount: { type: GraphQLInt },
           rejectedCount: { type: GraphQLInt },
@@ -108,11 +109,6 @@ const RootQuery = new GraphQLObjectType({
             page = 1,
             limit = 10,
           } = args;
-
-          let viewedCount = 0;
-          let shortlistedCount = 0;
-          let rejectedCount = 0;
-          let holdCount = 0;
 
           const filters = {};
 
@@ -275,28 +271,9 @@ const RootQuery = new GraphQLObjectType({
           //   }
           // }
 
-          // Clone and strip status condition from filters for count aggregation
-          const countFilters = JSON.parse(JSON.stringify(filters));
-
-          // Remove statusBy.status filter from countFilters
-          if (countFilters.$and) {
-            countFilters.$and = countFilters.$and.filter((clause) => {
-              if (
-                clause.statusBy &&
-                clause.statusBy.$elemMatch &&
-                clause.statusBy.$elemMatch.status
-              ) {
-                return false; // Remove the status-specific condition
-              }
-              return true;
-            });
-
-            if (countFilters.$and.length === 0) {
-              delete countFilters.$and;
-            }
-          }
-
           const matchStage = { $match: countFilters };
+
+          // const matchStage = { $match: filters };
 
           const unwindStage = { $unwind: "$statusBy" };
 
@@ -307,28 +284,28 @@ const RootQuery = new GraphQLObjectType({
             },
           };
 
-          const aggregation = await Candidate.aggregate([
-            // matchStage,
-            unwindStage,
-            groupStage,
-          ]);
+          // const aggregation = await Candidate.aggregate([
+          //   matchStage,
+          //   unwindStage,
+          //   groupStage,
+          // ]);
 
-          for (const item of aggregation) {
-            switch (item._id) {
-              case "Viewed":
-                viewedCount = item.count;
-                break;
-              case "Shortlisted":
-                shortlistedCount = item.count;
-                break;
-              case "Rejected":
-                rejectedCount = item.count;
-                break;
-              case "Hold":
-                holdCount = item.count;
-                break;
-            }
-          }
+          // for (const item of aggregation) {
+          //   switch (item._id) {
+          //     case "Viewed":
+          //       viewedCount = item.count;
+          //       break;
+          //     case "Shortlisted":
+          //       shortlistedCount = item.count;
+          //       break;
+          //     case "Rejected":
+          //       rejectedCount = item.count;
+          //       break;
+          //     case "Hold":
+          //       holdCount = item.count;
+          //       break;
+          //   }
+          // }
 
           // --------------------------------------------------
           // --------------------------------------------------
@@ -366,9 +343,64 @@ const RootQuery = new GraphQLObjectType({
             }
           }
 
-          const totalCandidates = await Candidate.countDocuments(filters);
+          // const totalCandidates = await Candidate.countDocuments(filters);
 
-          const candidates = await Candidate.find(filters)
+          // Step 2: Count stats using only base filters (no status filter)
+          const allCandidates = await Candidate.find(filters);
+
+          let viewedCount = 0;
+          let shortlistedCount = 0;
+          let rejectedCount = 0;
+          let holdCount = 0;
+
+          for (const candidate of allCandidates) {
+            const statusEntry = candidate.statusBy.find(
+              (entry) => entry.recruiter.toString() === employerId
+            );
+
+            if (statusEntry) {
+              switch (statusEntry.status) {
+                case "Viewed":
+                  viewedCount++;
+                  break;
+                case "Shortlisted":
+                  shortlistedCount++;
+                  break;
+                case "Rejected":
+                  rejectedCount++;
+                  break;
+                case "Hold":
+                  holdCount++;
+                  break;
+              }
+            }
+          }
+
+          const totalCount = allCandidates.length;
+
+          // Step 3: Apply status filter for pagination query only
+          const paginatedFilters = { ...filters };
+
+          if (employerId && isStringFilled(status)) {
+            const recruiterStatusFilter = {
+              statusBy: {
+                $elemMatch: {
+                  recruiter: employerId,
+                  status: new RegExp(`^${status}$`, "i"),
+                },
+              },
+            };
+
+            paginatedFilters.$and = paginatedFilters.$and
+              ? [...paginatedFilters.$and, recruiterStatusFilter]
+              : [recruiterStatusFilter];
+          }
+
+          const totalCandidates = await Candidate.countDocuments(
+            paginatedFilters
+          );
+
+          const candidates = await Candidate.find(paginatedFilters)
             .sort({ updatedAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit);
@@ -435,6 +467,7 @@ const RootQuery = new GraphQLObjectType({
             currentPage: page,
             totalPages: Math.ceil(totalCandidates / limit),
             candidates: sortedCandidates,
+            totalCount,
             viewedCount,
             shortlistedCount,
             rejectedCount,
