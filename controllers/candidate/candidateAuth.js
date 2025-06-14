@@ -48,20 +48,30 @@ const normalizeList = (value) =>
         .filter(Boolean)
     : [];
 
+const headerMap = {
+  fullName: ["fullName", "Name of the Candidate"],
+  gender: ["gender", "Gender"],
+  location: ["location", "Current  Location"],
+  preferredJobLocation: ["preferredJobLocation", "Preferred Location"],
+  phone: ["phone", "Mobile No."],
+  email: ["email", "Email"],
+  permanentAddress: ["permanentAddress", "Postal Address"],
+  skills: ["skills", "Key Skills"],
+  experienceYears: ["experienceYears", "Work Experience"],
+  qualification: ["highestQualification", "Qualification"],
+};
+
 export const bulkUploadCandidates = bulkUploadCandidatesUtils(
-  [
-    "fullName",
-    "email",
-    "phone",
-    "location",
-    "permanentAddress",
-    "skills",
-    "preferredJobLocation",
-    "experienceYears",
-    "gender",
-  ],
+  headerMap, // <--- pass mapping instead of plain list
   Candidate,
   (row) => {
+    const getField = (keys) => {
+      for (const key of keys) {
+        if (row?.[key]) return row[key];
+      }
+      return undefined;
+    };
+
     const parseNumber = (val) => {
       const num = Number(val);
       return isNaN(num) ? undefined : num;
@@ -69,31 +79,30 @@ export const bulkUploadCandidates = bulkUploadCandidatesUtils(
 
     return {
       registration: {
-        fullName: row?.fullName || row?.FullName,
-        email: row?.email,
-        phone: row?.phone || row?.Phone,
-        location: row?.location || row?.Location,
-        permanentAddress: row?.permanentAddress || row?.PermanentAddress,
-        skills: normalizeList(row?.skills || row?.Skills),
+        fullName: getField(headerMap.fullName),
+        email: getField(headerMap.email),
+        phone: getField(headerMap.phone),
+        location: getField(headerMap.location),
+        permanentAddress: getField(headerMap.permanentAddress),
+        skills: normalizeList(getField(headerMap.skills)),
         role: "candidate",
       },
       jobPreferences: {
-        preferredJobLocation: row?.preferredJobLocation
-          ? row?.preferredJobLocation
-              .split("&")
-              .map((loc) => loc.trim())
-              .filter(Boolean)
-          : [],
-        gender: row?.gender || row?.Gender,
+        preferredJobLocation:
+          getField(headerMap.preferredJobLocation)
+            ?.split("&")
+            .map((loc) => loc.trim())
+            .filter(Boolean) || [],
+        gender: getField(headerMap.gender),
         experience: {
-          years: parseNumber(row?.experienceYears || row?.ExperienceYears),
+          years: parseNumber(getField(headerMap.experienceYears)),
           months: parseNumber(row?.experienceMonths || row?.ExperienceMonths),
         },
       },
       candidateEducation: {
-        highestQualification: row?.qualification || row?.Qualification,
+        highestQualification: getField(headerMap.qualification),
       },
-      experienceYears: row?.experienceYears || row?.ExperienceYears,
+      experienceYears: getField(headerMap.experienceYears),
     };
   }
 );
