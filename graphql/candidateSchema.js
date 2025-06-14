@@ -271,7 +271,7 @@ const RootQuery = new GraphQLObjectType({
           //   }
           // }
 
-          const matchStage = { $match: countFilters };
+          // const matchStage = { $match: countFilters };
 
           // const matchStage = { $match: filters };
 
