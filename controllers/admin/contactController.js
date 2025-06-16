@@ -57,16 +57,29 @@ export const contactEnquiery = async (req, res) => {
     }
 
     const htmlContent = `
-      <p><strong>Message:</strong><br>${message}</p>
+      <p>${message}</p>
       <p><strong>From:</strong> ${email}</p>
       <p><strong>Phone:</strong> ${phone}</p>
     `;
 
-    await sendEmail({
-      to: "info@infotechedge.in",
-      subject: `Enquiry: ${subject}`,
-      html: htmlContent,
-    });
+    const recipients = [
+      "info@infotechedge.in",
+      "sale@solvezone.in",
+      "mkt@solvezone.in",
+    ];
+
+    for (const recipient of recipients) {
+      try {
+        await sendEmail({
+          to: recipient,
+          subject: `${subject}`,
+          html: htmlContent,
+        });
+        console.log(`Enquiry email sent to ${recipient}`);
+      } catch (error) {
+        console.error(`Failed to send to ${recipient}:`, error.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,
