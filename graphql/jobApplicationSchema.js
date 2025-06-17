@@ -30,6 +30,33 @@ function formatAnswer(answer) {
   return answer.toString();
 }
 
+function getFreshnessFilter(freshness) {
+  const now = new Date();
+  let dateRange;
+
+  switch (freshness) {
+    case "24h":
+      dateRange = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case "3d":
+      dateRange = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      break;
+    case "7d":
+      dateRange = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case "15d":
+      dateRange = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+      break;
+    case "30d":
+      dateRange = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    default:
+      return null;
+  }
+
+  return { $gte: dateRange };
+}
+
 const JobApplicationType = new GraphQLObjectType({
   name: "JobApplication",
   fields: {
@@ -113,6 +140,7 @@ const RootQuery = new GraphQLObjectType({
         ageMin: { type: GraphQLInt },
         ageMax: { type: GraphQLInt },
         status: { type: GraphQLString },
+        freshness: { type: GraphQLString },
         page: { type: GraphQLInt },
         limit: { type: GraphQLInt },
       },
@@ -134,6 +162,7 @@ const RootQuery = new GraphQLObjectType({
           ageMin,
           status,
           ageMax,
+          freshness,
           page = 1,
           limit = 10,
         } = args;
@@ -155,6 +184,13 @@ const RootQuery = new GraphQLObjectType({
           const filters = [];
 
           filters.push({ job: new mongoose.Types.ObjectId(jobId) });
+
+          if (freshness) {
+            const freshnessFilter = getFreshnessFilter(freshness);
+            if (freshnessFilter) {
+              filters.push({ updatedAt: freshnessFilter });
+            }
+          }
 
           const isNonEmpty = (val) => Array.isArray(val) && val.length > 0;
           const isStringFilled = (str) =>
@@ -507,6 +543,7 @@ const RootQuery = new GraphQLObjectType({
               mode: c.candidateEducation?.educationMode,
               appliedAt: application.appliedAt,
               status: application.status,
+              updatedAt: c.updatedAt,
               answers,
               numberOfRecruitersShortlisted,
             };
