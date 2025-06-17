@@ -9,6 +9,7 @@ import {
   GraphQLString,
 } from "graphql";
 
+import mongoose from "mongoose";
 import Candidate from "../models/candidate/candidateModel.js";
 import Employer from "../models/employer/employerModel.js";
 
@@ -16,6 +17,33 @@ function calculateAge(dob) {
   const diff = Date.now() - dob.getTime();
   const ageDate = new Date(diff);
   return Math.abs(ageDate.getUTCFullYear() - 1970);
+}
+
+function getFreshnessFilter(freshness) {
+  const now = new Date();
+  let dateRange;
+
+  switch (freshness) {
+    case "24h":
+      dateRange = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      break;
+    case "3d":
+      dateRange = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      break;
+    case "7d":
+      dateRange = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case "15d":
+      dateRange = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+      break;
+    case "30d":
+      dateRange = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    default:
+      return null;
+  }
+
+  return { $gte: dateRange };
 }
 
 const CandidateType = new GraphQLObjectType({
@@ -45,6 +73,7 @@ const CandidateType = new GraphQLObjectType({
     medium: { type: GraphQLString },
     mode: { type: GraphQLString },
     recruiterStatus: { type: GraphQLString },
+    updatedAt: { type: GraphQLString },
     // status: { type: GraphQLString },
   },
 });
@@ -85,6 +114,7 @@ const RootQuery = new GraphQLObjectType({
         ageMin: { type: GraphQLInt },
         ageMax: { type: GraphQLInt },
         status: { type: GraphQLString },
+        freshness: { type: GraphQLString },
         page: { type: GraphQLInt },
         limit: { type: GraphQLInt },
       },
@@ -106,11 +136,20 @@ const RootQuery = new GraphQLObjectType({
             ageMin,
             ageMax,
             status,
+            freshness,
             page = 1,
             limit = 10,
           } = args;
 
-          const filters = {};
+          const baseFilters = {};
+
+          // Freshness filter
+          if (freshness) {
+            const freshnessFilter = getFreshnessFilter(freshness);
+            if (freshnessFilter) {
+              baseFilters.updatedAt = freshnessFilter;
+            }
+          }
 
           const isNonEmpty = (val) => Array.isArray(val) && val.length > 0;
           const isStringFilled = (str) =>
@@ -144,10 +183,7 @@ const RootQuery = new GraphQLObjectType({
             }
 
             if (filtersForSkillsAndTitles.length > 0) {
-              if (!filters.$or) {
-                filters.$or = [];
-              }
-              filters.$or.push(...filtersForSkillsAndTitles);
+              baseFilters.$or = filtersForSkillsAndTitles;
             }
           }
 
@@ -162,7 +198,7 @@ const RootQuery = new GraphQLObjectType({
             const parts = location.split(",").map((part) => part.trim());
             const [city, state] = parts;
 
-            filters["$and"] = [
+            baseFilters.$and = [
               {
                 "registration.location": {
                   $regex: new RegExp(city, "i"),
@@ -184,41 +220,49 @@ const RootQuery = new GraphQLObjectType({
           // }
 
           if (isStringFilled(jobRole)) {
-            filters["jobPreferences.jobRoles"] = {
+            baseFilters["jobPreferences.jobRoles"] = {
               $regex: jobRole,
               $options: "i",
             };
           }
 
           if (isNonEmpty(jobTypes)) {
-            filters["jobPreferences.jobType"] = { $in: jobTypes };
+            baseFilters["jobPreferences.jobType"] = { $in: jobTypes };
           }
 
           if (isStringFilled(degree)) {
-            filters["candidateEducation.highestQualification"] = {
+            baseFilters["candidateEducation.highestQualification"] = {
               $regex: degree,
               $options: "i",
             };
           }
 
           if (isStringFilled(gender)) {
-            filters["jobPreferences.gender"] = gender;
+            baseFilters["jobPreferences.gender"] = gender;
           }
 
-          if (employerId && isStringFilled(args.status)) {
-            const recruiterStatusFilter = {
-              statusBy: {
-                $elemMatch: {
-                  recruiter: employerId,
-                  status: new RegExp(`^${args.status}$`, "i"),
-                },
-              },
-            };
+          // .................................................
+          // .................................................
+          // .................................................
 
-            filters.$and = filters.$and
-              ? [...filters.$and, recruiterStatusFilter]
-              : [recruiterStatusFilter];
-          }
+          // if (employerId && isStringFilled(args.status)) {
+          //   const recruiterStatusFilter = {
+          //     statusBy: {
+          //       $elemMatch: {
+          //         recruiter: employerId,
+          //         status: new RegExp(`^${args.status}$`, "i"),
+          //       },
+          //     },
+          //   };
+
+          //   filters.$and = filters.$and
+          //     ? [...filters.$and, recruiterStatusFilter]
+          //     : [recruiterStatusFilter];
+          // }
+
+          // .................................................
+          // .................................................
+          // .................................................
 
           // // Experience filter
           // if (
@@ -275,14 +319,14 @@ const RootQuery = new GraphQLObjectType({
 
           // const matchStage = { $match: filters };
 
-          const unwindStage = { $unwind: "$statusBy" };
+          // const unwindStage = { $unwind: "$statusBy" };
 
-          const groupStage = {
-            $group: {
-              _id: "$statusBy.status",
-              count: { $sum: 1 },
-            },
-          };
+          // const groupStage = {
+          //   $group: {
+          //     _id: "$statusBy.status",
+          //     count: { $sum: 1 },
+          //   },
+          // };
 
           // const aggregation = await Candidate.aggregate([
           //   matchStage,
@@ -337,8 +381,8 @@ const RootQuery = new GraphQLObjectType({
 
             // Combine salary filters with $and
             if (salaryFilter.length > 0) {
-              filters.$and = filters.$and
-                ? [...filters.$and, ...salaryFilter]
+              baseFilters.$and = baseFilters.$and
+                ? [...baseFilters.$and, ...salaryFilter]
                 : salaryFilter;
             }
           }
@@ -346,40 +390,52 @@ const RootQuery = new GraphQLObjectType({
           // const totalCandidates = await Candidate.countDocuments(filters);
 
           // Step 2: Count stats using only base filters (no status filter)
-          const allCandidates = await Candidate.find(filters);
-
           let viewedCount = 0;
           let shortlistedCount = 0;
           let rejectedCount = 0;
           let holdCount = 0;
+          let totalCount = 0;
 
-          for (const candidate of allCandidates) {
-            const statusEntry = candidate.statusBy.find(
-              (entry) => entry.recruiter.toString() === employerId
-            );
+          if (employerId) {
+            const aggregation = await Candidate.aggregate([
+              { $match: baseFilters },
+              { $unwind: "$statusBy" },
+              {
+                $match: {
+                  "statusBy.recruiter": new mongoose.Types.ObjectId(employerId),
+                },
+              },
+              {
+                $group: {
+                  _id: "$statusBy.status",
+                  count: { $sum: 1 },
+                },
+              },
+            ]);
 
-            if (statusEntry) {
-              switch (statusEntry.status) {
+            for (const item of aggregation) {
+              totalCount += item.count;
+              switch (item._id) {
                 case "Viewed":
-                  viewedCount++;
+                  viewedCount = item.count;
                   break;
                 case "Shortlisted":
-                  shortlistedCount++;
+                  shortlistedCount = item.count;
                   break;
                 case "Rejected":
-                  rejectedCount++;
+                  rejectedCount = item.count;
                   break;
                 case "Hold":
-                  holdCount++;
+                  holdCount = item.count;
                   break;
               }
             }
+          } else {
+            totalCount = await Candidate.countDocuments(baseFilters);
           }
 
-          const totalCount = allCandidates.length;
-
           // Step 3: Apply status filter for pagination query only
-          const paginatedFilters = { ...filters };
+          const paginatedFilters = { ...baseFilters };
 
           if (employerId && isStringFilled(status)) {
             const recruiterStatusFilter = {
@@ -450,6 +506,7 @@ const RootQuery = new GraphQLObjectType({
               board: c.candidateEducation.boardOfEducation,
               medium: c.candidateEducation.medium,
               mode: c.candidateEducation.educationMode,
+              updatedAt: c.updatedAt,
               recruiterStatus,
             };
           });
