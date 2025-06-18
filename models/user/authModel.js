@@ -10,7 +10,7 @@ const RegisterSchema = new mongoose.Schema(
     minExperience: Number,
     maxExperience: Number,
     skills: String,
-    industry: String,
+    // industry: String,
     description: String,
     password: String,
     profilePic: String,

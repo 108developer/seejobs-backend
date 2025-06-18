@@ -24,6 +24,7 @@ import {
   updateRegistration,
   updateResume,
   updateWorkExperience,
+  uploadResume,
   verifyCandidateOtp,
 } from "../../controllers/candidate/candidateAuth.js";
 
@@ -43,6 +44,7 @@ router.post("/bulkUploadCandidates", uploadMultipleFiles, bulkUploadCandidates);
 
 router.post("/login", login);
 router.post("/signup", signup);
+router.post("/uploadResume", upload, uploadResume);
 router.post("/register", upload, register);
 router.get("/getCandidateProfile/:candidateId", getCandidateProfile);
 

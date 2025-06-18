@@ -70,9 +70,9 @@ const employerSchema = new mongoose.Schema(
     level: {
       type: String,
     },
-    industry: {
-      type: String,
-    },
+    // industry: {
+    //   type: String,
+    // },
     achievements: {
       type: String,
     },
