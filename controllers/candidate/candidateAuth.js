@@ -12,10 +12,7 @@ import {
   getStoredOTP,
   storeOTP,
 } from "../../services/otpService.js";
-import {
-  bulkUploadCandidatesUtils,
-  bulkUploadUtils,
-} from "../../utils/bulkUploadUtils.js";
+import { bulkUploadCandidatesUtils } from "../../utils/bulkUploadUtils.js";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
@@ -107,6 +104,92 @@ export const bulkUploadCandidates = bulkUploadCandidatesUtils(
   }
 );
 
+const buildWelcomeEmail = ({ fullName, email, phone, plainPassword }) => {
+  const text = `Hi ${fullName},
+
+Welcome to SeeJob!
+
+Your account has been successfully created. Here are your login details:
+
+Email: ${email}
+Phone: ${phone}
+Password: ${plainPassword}
+
+Visit your profile at: ${process.env.FRONTEND_URL}
+
+Why SeeJob?
+
+SeeJob is built with one mission: to help job seekers like you connect directly with top employers — faster, smarter, and with zero noise. Unlike Naukri, LinkedIn, or Indeed, we simplify your job search with real-time job alerts, skill-matching recommendations, and direct applications.
+
+Get started today by visiting your profile, updating your resume, and exploring jobs designed just for you.
+
+If your password doesn't work, simply use "Forgot Password" on the login screen to reset it easily.
+
+We're excited to help you land your dream job!
+
+Best regards,  
+The SeeJob Team  
+https://seejob.in`;
+
+  const html = `
+  <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        .container { background-color: #ffffff; max-width: 600px; margin: 30px auto; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 10px; }
+        p { color: #555; line-height: 1.6; }
+        .credentials { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007BFF; margin: 20px 0; border-radius: 5px; }
+        .btn { background-color: #007BFF; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 20px; }
+        .section-title { font-size: 18px; color: #333; margin-top: 30px; }
+        .footer { text-align: center; font-size: 12px; color: #888; margin-top: 40px; }
+        .highlight { color: #007BFF; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Welcome to SeeJob, ${fullName}!</h1>
+        <p>We're excited to have you join India's fastest-growing job platform, <strong>SeeJob.in</strong>.</p>
+
+        <div class="credentials">
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Phone:</strong> ${phone}</p>
+          <p><strong>Password:</strong> ${plainPassword}</p>
+        </div>
+
+        <p>To update your profile and start applying, click the button below:</p>
+        <a href="${
+          process.env.FRONTEND_URL
+        }" class="btn">Go to Your Profile & Sign In</a>
+
+        <h2 class="section-title">Why SeeJob?</h2>
+        <p>
+          Unlike platforms like <span class="highlight">Naukri</span>, <span class="highlight">LinkedIn</span>, or <span class="highlight">Indeed</span>, SeeJob is <strong>focused entirely on candidate-first experiences</strong>:
+        </p>
+        <ul>
+          <li>🔍 Smart job recommendations based on your skills</li>
+          <li>⚡ Faster applications with no unnecessary steps</li>
+          <li>🎯 Jobs curated for freshers, professionals, and specialists</li>
+          <li>💬 Real-time alerts for matching opportunities</li>
+        </ul>
+
+        <p>It takes just minutes to complete your profile and apply to multiple jobs. We are here to guide you at every step.</p>
+        <p>If you can’t log in with your password, use the “Forgot Password” option to reset it easily.</p>
+
+        <p>Welcome again to the future of hiring. Let’s build your career together!</p>
+
+        <p class="footer">
+          &copy; ${new Date().getFullYear()} SeeJob | 
+          <a href="https://seejob.in" style="color: #007BFF;">seejob.in</a> | All rights reserved
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+
+  return { text, html };
+};
+
 // Modal Sign Up Controller
 export const signup = async (req, res) => {
   const { fullName, email, phone, password } = req.body;
@@ -149,6 +232,20 @@ export const signup = async (req, res) => {
       { expiresIn: "1h" }
     );
 
+    const { text, html } = buildWelcomeEmail({
+      fullName,
+      email,
+      phone,
+      plainPassword: password,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: "Welcome to SeeJob - Your Account Has Been Created for Job!",
+      text,
+      html,
+    });
+
     res.status(201).json({
       success: true,
       message:
@@ -169,6 +266,92 @@ export const signup = async (req, res) => {
         .json({ message: "Email or Phone already exists." });
     }
     res.status(500).json({ message: "Failed to register Candidate." });
+  }
+};
+
+export const uploadResume = async (req, res) => {
+  const { username, email, phone, password } = req.body;
+  const resume = req.files?.resume?.[0];
+
+  try {
+    if (!username || !email || !phone || !password) {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    const existingCandidate = await Candidate.findOne({
+      $or: [{ "registration.email": email }, { "registration.phone": phone }],
+    });
+
+    if (existingCandidate) {
+      return res
+        .status(400)
+        .json({ message: "Email or Phone already exists." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    let resumeUrl = null;
+    if (resume) {
+      const resumeResult = await uploadToCloudinary(
+        resume.buffer,
+        "see_job_candidate_resumes",
+        `${email}_resume`
+      );
+      resumeUrl = resumeResult.secure_url;
+    }
+
+    const newCandidate = new Candidate({
+      registration: {
+        fullName: username,
+        email,
+        phone,
+        password: hashedPassword,
+        role: "candidate",
+        resume: resumeUrl,
+      },
+      jobPreferences: {},
+      candidateEducation: {},
+      workExperience: [],
+    });
+
+    await newCandidate.save();
+
+    const token = jwt.sign(
+      { userId: newCandidate._id, role: "candidate" },
+      "your_jwt_secret",
+      { expiresIn: "1h" }
+    );
+
+    const { text, html } = buildWelcomeEmail({
+      fullName,
+      email,
+      phone,
+      plainPassword: password,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: "Welcome to SeeJob - Your Account Has Been Created for Job!",
+      text,
+      html,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Candidate registered successfully with resume!",
+      token,
+      candidateId: newCandidate._id,
+      fullName: newCandidate.registration.fullName,
+      email: newCandidate.registration.email,
+      phone: newCandidate.registration.phone,
+      role: newCandidate.registration.role,
+      resume: resumeUrl,
+      expiresIn: "1h",
+    });
+  } catch (error) {
+    console.error("Error during resume upload:", error);
+    res.status(500).json({ message: "Failed to register candidate." });
   }
 };
 
@@ -236,7 +419,7 @@ export const getCandidateProfile = async (req, res) => {
         minexp: candidate.registration.minexp,
         maxexp: candidate.registration.maxexp,
         skills: candidate.registration.skills,
-        industry: candidate.registration.industry,
+        // industry: candidate.registration.industry,
         jobDescription: candidate.registration.jobDescription,
         terms: candidate.registration.terms,
         role: candidate.registration.role,
@@ -316,7 +499,7 @@ export const register = async (req, res) => {
     minexp,
     maxexp,
     skills,
-    industry,
+    // industry,
     jobDescription,
     terms,
   } = req.body;
@@ -331,7 +514,7 @@ export const register = async (req, res) => {
       !minexp ||
       !maxexp ||
       !skills ||
-      !industry ||
+      // !industry ||
       !jobDescription ||
       !terms
     ) {
@@ -349,7 +532,7 @@ export const register = async (req, res) => {
     candidate.registration.minexp = minexp;
     candidate.registration.maxexp = maxexp;
     candidate.registration.skills = skills;
-    candidate.registration.industry = industry;
+    // candidate.registration.industry = industry;
     candidate.registration.jobDescription = jobDescription;
     candidate.registration.terms = terms;
 
@@ -388,11 +571,12 @@ export const updateRegistration = async (req, res) => {
     minexp,
     maxexp,
     skills,
-    industry,
+    // industry,
     jobDescription,
     terms,
   } = req.body;
 
+  console.log("REQ: ", req.body);
   try {
     // Authorization check (if required)
     const candidate = await Candidate.findById(userId);
@@ -409,7 +593,7 @@ export const updateRegistration = async (req, res) => {
     candidate.registration.minexp = minexp;
     candidate.registration.maxexp = maxexp;
     candidate.registration.skills = skills;
-    candidate.registration.industry = industry;
+    // candidate.registration.industry = industry;
     candidate.registration.jobDescription = jobDescription;
     candidate.registration.terms = terms;
 
@@ -978,7 +1162,7 @@ export const updateJobPreference = async (req, res) => {
           "jobPreferences.jobTitle": jobTitle,
           "jobPreferences.jobRoles": jobRoles,
           "jobPreferences.jobType": jobType,
-          "jobPreferences.jobIndustry": jobIndustry,
+          // "jobPreferences.jobIndustry": jobIndustry,
           "jobPreferences.jobLocation": jobLocation,
         },
       },
@@ -1116,7 +1300,7 @@ export const updateWorkExperience = async (req, res) => {
       endDate,
       currentlyEmployed,
       jobDescription,
-      industry,
+      // industry,
       location,
       noticePeriod,
     } = req.body;
@@ -1164,7 +1348,7 @@ export const updateWorkExperience = async (req, res) => {
           "workExperience.$[elem].endDate": isoEndDate,
           "workExperience.$[elem].currentlyEmployed": currentlyEmployed,
           "workExperience.$[elem].jobDescription": jobDescription,
-          "workExperience.$[elem].industry": industry,
+          // "workExperience.$[elem].industry": industry,
           "workExperience.$[elem].location": location,
           "workExperience.$[elem].noticePeriod": noticePeriod,
         },

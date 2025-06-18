@@ -12,7 +12,7 @@ const candidateSchema = new mongoose.Schema(
       minexp: { type: Number },
       maxexp: { type: Number },
       skills: { type: [String] },
-      industry: { type: String },
+      // industry: { type: String },
       resume: { type: String },
       jobDescription: { type: String },
       terms: { type: Boolean },
@@ -56,7 +56,7 @@ const candidateSchema = new mongoose.Schema(
         currentlyEmployed: { type: Boolean, default: false },
         endDate: { type: Date },
         jobDescription: { type: String },
-        industry: { type: String },
+        // industry: { type: String },
         location: { type: String },
         noticePeriod: {
           type: String,

@@ -727,7 +727,6 @@ export const getJobsApplications = async (req, res) => {
           registration.minexp
           registration.maxexp
           registration.skills
-          registration.industry
           registration.resume
           jobPreferences.profileTitle 
           jobPreferences.jobRoles

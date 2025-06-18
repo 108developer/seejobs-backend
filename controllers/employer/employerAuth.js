@@ -27,7 +27,7 @@ export const register = async (req, res) => {
     "state",
     "totalExperience",
     "level",
-    "industry",
+    // "industry",
     "achievements",
     "description",
   ];
@@ -56,7 +56,7 @@ export const register = async (req, res) => {
     state,
     totalExperience,
     level,
-    industry,
+    // industry,
     achievements,
     description,
   } = req.body;
@@ -91,7 +91,7 @@ export const register = async (req, res) => {
       state,
       totalExperience,
       level,
-      industry,
+      // industry,
       achievements,
       description,
       role: "employer",
@@ -197,7 +197,7 @@ export const getEmployerProfile = async (req, res) => {
         state: employer.state,
         totalExperience: employer.totalExperience,
         level: employer.level,
-        industry: employer.industry,
+        // industry: employer.industry,
         achievements: employer.achievements,
         description: employer.description,
         role: employer.role,
@@ -232,7 +232,7 @@ export const updateRecruiter = async (req, res) => {
     state,
     totalExperience,
     level,
-    industry,
+    // industry,
     achievements,
     description,
   } = req.body;
@@ -258,7 +258,7 @@ export const updateRecruiter = async (req, res) => {
     employer.state = state || employer.state;
     employer.totalExperience = totalExperience || employer.totalExperience;
     employer.level = level || employer.level;
-    employer.industry = industry || employer.industry;
+    // employer.industry = industry || employer.industry;
     employer.achievements = achievements || employer.achievements;
     employer.description = description || employer.description;
 
