@@ -119,7 +119,7 @@ Visit your profile at: ${process.env.FRONTEND_URL}
 
 Why SeeJob?
 
-SeeJob is built with one mission: to help job seekers like you connect directly with top employers — faster, smarter, and with zero noise. Unlike Naukri, LinkedIn, or Indeed, we simplify your job search with real-time job alerts, skill-matching recommendations, and direct applications.
+SeeJob is built with one mission: to help job seekers like you connect directly with top employers — faster, smarter, and with zero noise. Unlike other job finding platforms, we simplify your job search with real-time job alerts, skill-matching recommendations, and direct applications.
 
 Get started today by visiting your profile, updating your resume, and exploring jobs designed just for you.
 
