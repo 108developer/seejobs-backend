@@ -164,7 +164,7 @@ https://seejob.in`;
 
         <h2 class="section-title">Why SeeJob?</h2>
         <p>
-          Unlike platforms like <span class="highlight">Naukri</span>, <span class="highlight">LinkedIn</span>, or <span class="highlight">Indeed</span>, SeeJob is <strong>focused entirely on candidate-first experiences</strong>:
+           Unlike other job finding platforms, SeeJob is <strong>focused entirely on candidate-first experiences</strong>:
         </p>
         <ul>
           <li>🔍 Smart job recommendations based on your skills</li>
