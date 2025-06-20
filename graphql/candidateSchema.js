@@ -12,6 +12,7 @@ import {
 import mongoose from "mongoose";
 import Candidate from "../models/candidate/candidateModel.js";
 import Employer from "../models/employer/employerModel.js";
+import { handleResumeView } from "../utils/handleResumeAccess.js";
 
 function calculateAge(dob) {
   const diff = Date.now() - dob.getTime();
@@ -559,11 +560,24 @@ const RootMutation = new GraphQLObjectType({
       }),
       args: {
         candidateId: { type: GraphQLID },
-        status: { type: GraphQLString },
+        status: { type: GraphQLString }, // this will also accept "email", "phone", "whatsapp"
         recruiterId: { type: GraphQLID },
       },
       async resolve(_, { candidateId, status, recruiterId }) {
         try {
+          const candidate = await Candidate.findById(candidateId);
+          const employer = await Employer.findById(recruiterId);
+
+          if (!candidate || !employer) {
+            return {
+              success: false,
+              message: "Candidate or employer not found.",
+            };
+          }
+
+          const lowerStatus = status.toLowerCase();
+
+          const contactActions = ["email", "phone", "whatsapp"];
           const validStatuses = [
             "Pending",
             "Viewed",
@@ -573,6 +587,19 @@ const RootMutation = new GraphQLObjectType({
             "Hired",
           ];
 
+          // Step 1: Deduct a view for both contact or status actions
+          const viewResult = await handleResumeView(recruiterId, candidateId);
+          if (!viewResult.success) return viewResult;
+
+          // Step 2: If it's a contact reveal (email/phone/whatsapp), we're done
+          if (contactActions.includes(lowerStatus)) {
+            return {
+              success: true,
+              message: `Contact (${lowerStatus}) revealed successfully.`,
+            };
+          }
+
+          // Step 3: If it's a status update (viewed, shortlisted, etc)
           const formattedStatus =
             status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -585,76 +612,14 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          const candidate = await Candidate.findById(candidateId);
-          if (!candidate) {
-            return {
-              success: false,
-              message: "Candidate not found.",
-            };
-          }
-
-          const employer = await Employer.findById(recruiterId);
-          if (!employer) {
-            return {
-              success: false,
-              message: "Employer not found.",
-            };
-          }
-
-          const requiresViewLimit = [
-            "Viewed",
-            "Shortlisted",
-            "Rejected",
-            "Hold",
-          ];
-          const subscription = employer.subscription;
-
-          if (requiresViewLimit.includes(formattedStatus)) {
-            if (!subscription) {
-              return {
-                success: false,
-                message:
-                  "No active subscription. Please subscribe to view resumes.",
-              };
-            }
-
-            if (subscription.status !== "Active") {
-              return {
-                success: false,
-                message:
-                  "Your subscription is not active. Please renew to continue.",
-              };
-            }
-
-            if (subscription.allowedResume <= 0) {
-              return {
-                success: false,
-                message:
-                  "You have reached your resume view limit. Please upgrade your plan.",
-              };
-            }
-
-            subscription.allowedResume -= 1;
-            subscription.viewedResume = (subscription.viewedResume || 0) + 1;
-
-            if (subscription.allowedResume === 0) {
-              subscription.status = "Expired";
-              subscription.plan = "Free";
-            }
-
-            await employer.save();
-          }
-
           const existingStatusIndex = candidate.statusBy.findIndex(
             (entry) => entry.recruiter.toString() === recruiterId
           );
 
           if (existingStatusIndex > -1) {
-            // Update existing entry
             candidate.statusBy[existingStatusIndex].status = formattedStatus;
             candidate.statusBy[existingStatusIndex].date = new Date();
           } else {
-            // Add new entry
             candidate.statusBy.push({
               recruiter: recruiterId,
               status: formattedStatus,
@@ -672,7 +637,7 @@ const RootMutation = new GraphQLObjectType({
 
           return {
             success: true,
-            message: "Application status updated successfully.",
+            message: `Status updated to ${formattedStatus}.`,
           };
         } catch (error) {
           console.error("Error updating status:", error);

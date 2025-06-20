@@ -128,6 +128,20 @@ const candidateSchema = new mongoose.Schema(
       },
     ],
 
+    viewedBy: [
+      {
+        recruiter: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Employer",
+          required: true,
+        },
+        viewedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
     jobs: {
       appliedJobs: [
         {
