@@ -53,7 +53,7 @@ export const postJob = async (req, res) => {
     if (!companyName) missingFields.push("Company Name");
     if (!companyEmail) missingFields.push("Company Email");
     if (!companyPhone) missingFields.push("Company Phone");
-    if (!companyWebsite) missingFields.push("Company Website");
+    // if (!companyWebsite) missingFields.push("Company Website");
     if (!companyDescription) missingFields.push("Company Description");
 
     if (missingFields.length > 0) {
@@ -62,7 +62,7 @@ export const postJob = async (req, res) => {
         .json({ message: `Missing fields:- ${missingFields.join(", ")}` });
     }
 
-    const newJobListing = new JobListing({
+    const jobData = {
       employer: userid,
       jobTitle,
       // jobRole,
@@ -86,11 +86,16 @@ export const postJob = async (req, res) => {
       companyName,
       companyEmail,
       companyPhone,
-      companyWebsite,
       companyDescription,
       questions,
-    });
+    };
 
+    // Add companyWebsite only if it's provided
+    if (companyWebsite?.trim()) {
+      jobData.companyWebsite = companyWebsite.trim();
+    }
+
+    const newJobListing = new JobListing(jobData);
     await newJobListing.save();
 
     res

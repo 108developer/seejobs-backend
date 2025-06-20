@@ -170,6 +170,7 @@ export const login = async (req, res) => {
       lastName: employer.lastName,
       companyName: employer.companyName,
       role: employer.role,
+      subscription: employer.subscription,
       expiresIn: "1h",
     });
   } catch (error) {
