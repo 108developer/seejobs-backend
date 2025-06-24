@@ -3,6 +3,7 @@ import express from "express";
 import { applyJobsController } from "../../controllers/jobs/applyJobController.js";
 import {
   applyToJob,
+  autoApplyToJobs,
   getAllJobs,
   getJobApplicantsDetail,
   // getJobApplicants,
@@ -33,6 +34,8 @@ const router = express.Router();
 
 // POST request to save a new job listing
 router.post("/post-job", postJob);
+
+router.post("/autoApplyToJobs", autoApplyToJobs);
 
 router.post("/postjobs", saveJobListing);
 
