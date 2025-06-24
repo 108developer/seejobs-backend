@@ -62,6 +62,8 @@ export const postJob = async (req, res) => {
         .json({ message: `Missing fields:- ${missingFields.join(", ")}` });
     }
 
+    const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
     const jobData = {
       employer: userid,
       jobTitle,
@@ -88,6 +90,8 @@ export const postJob = async (req, res) => {
       companyPhone,
       companyDescription,
       questions,
+      deadline,
+      status: "open",
     };
 
     // Add companyWebsite only if it's provided
@@ -285,6 +289,78 @@ export const applyToJob = async (req, res) => {
   }
 };
 
+// Use npm i plimit to limit max 5 job to get applications asynchronously at a time
+export const autoApplyToJobs = async (req, res) => {
+  const { numberOfCandidates = 5 } = req.body;
+  try {
+    const cursor = JobListing.find({ status: "open" }).cursor();
+
+    for await (const job of cursor) {
+      const pipeline = [
+        {
+          $match: {
+            "registration.skills": { $in: job.skillsRequired },
+            _id: {
+              $nin: await Application.find({ job: job._id }).distinct(
+                "candidate"
+              ),
+            },
+          },
+        },
+        {
+          $addFields: {
+            priority: {
+              $cond: [
+                { $eq: ["$registration.location", job.jobLocation] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+        { $sort: { priority: -1 } },
+        { $sample: { size: numberOfCandidates } },
+      ];
+      const candidates = await Candidate.aggregate(pipeline);
+
+      const apps = candidates.map((c) => ({
+        job: job._id,
+        candidate: c._id,
+        employer: job.employer,
+        answers: [],
+        status: "Pending",
+      }));
+      await Application.insertMany(apps);
+
+      const bulkOps = candidates.map((c) => ({
+        updateOne: {
+          filter: { _id: c._id },
+          update: {
+            $push: {
+              "jobs.appliedJobs": {
+                job: job._id,
+                status: "Pending",
+                appliedDate: new Date(),
+              },
+            },
+          },
+        },
+      }));
+      if (bulkOps.length) {
+        await Candidate.bulkWrite(bulkOps);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Auto-applied ${numberOfCandidates} candidates for each active job.`,
+    });
+  } catch (err) {
+    console.error("Auto-apply error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const saveJobListing = async (req, res) => {
   try {
     const jobData = req.body;
@@ -316,7 +392,6 @@ export const getAllJobs = async (req, res) => {
 
     const {
       jobTitle,
-      // role,
       salaryMin,
       salaryMax,
       experienceMin,
@@ -326,17 +401,12 @@ export const getAllJobs = async (req, res) => {
       jobTypes,
     } = req.query;
 
-    const filter = {};
     const andConditions = [];
 
     if (jobTitle) {
       const formattedJobTitle = convertToLabel(jobTitle);
       andConditions.push({ jobTitle: formattedJobTitle });
     }
-
-    // if (role) {
-    //   andConditions.push({ role });
-    // }
 
     if (jobTypes) {
       const typesArray = jobTypes.split(",").map((type) => type.trim());
@@ -384,48 +454,67 @@ export const getAllJobs = async (req, res) => {
       andConditions.push({ "experience.max": { $lte: parsedMaxExp } });
     }
 
-    if (andConditions.length > 0) {
-      filter["$and"] = andConditions;
-    }
+    andConditions.push({
+      deadline: { $gte: new Date() },
+      status: "open",
+    });
 
-    const totalJobs = await JobListing.countDocuments(filter);
-    const jobs = await JobListing.find(filter)
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    const matchStage = { $and: andConditions };
 
+    // Aggregation pipeline starts here
+    const pipeline = [
+      { $match: matchStage },
+      { $sort: { updatedAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ];
+
+    // If candidateId is valid, add $lookup to find applied jobs and add hasApplied field
     if (
       candidateId &&
       mongoose.Types.ObjectId.isValid(candidateId) &&
       candidateId !== "null"
     ) {
-      const appliedJobs = await Application.find({
-        candidate: candidateId,
-        job: { $in: jobs.map((job) => job._id) },
-      }).select("job");
-
-      const appliedJobIds = appliedJobs.map((app) => app.job.toString());
-
-      const jobsWithAppliedStatus = jobs.map((job) => {
-        return {
-          ...job.toObject(),
-          hasApplied: appliedJobIds.includes(job._id.toString()),
-        };
-      });
-      const totalPages = Math.ceil(totalJobs / limit);
-
-      return res.json({
-        success: true,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalJobs,
+      pipeline.push({
+        $lookup: {
+          from: "applications",
+          let: { jobId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$job", "$$jobId"] },
+                    {
+                      $eq: [
+                        "$candidate",
+                        new mongoose.Types.ObjectId(candidateId),
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 1 } },
+          ],
+          as: "applications",
         },
-        data: jobsWithAppliedStatus,
       });
+
+      pipeline.push({
+        $addFields: {
+          hasApplied: { $gt: [{ $size: "$applications" }, 0] },
+        },
+      });
+
+      pipeline.push({ $project: { applications: 0 } }); // Remove applications array
     }
 
+    // Execute aggregation query
+    const jobs = await JobListing.aggregate(pipeline);
+
+    // Get total count for pagination (without skip/limit)
+    const totalJobs = await JobListing.countDocuments(matchStage);
     const totalPages = Math.ceil(totalJobs / limit);
 
     return res.json({
@@ -439,7 +528,9 @@ export const getAllJobs = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching jobs: ", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 

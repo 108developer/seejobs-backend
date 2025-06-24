@@ -97,11 +97,11 @@ export const register = async (req, res) => {
       role: "employer",
       subscription: {
         plan: "Free",
-        status: "Expired",
-        allowedResume: 0,
+        status: "Active",
+        allowedResume: 5,
         viewedResume: 0,
-        startDate: null,
-        endDate: null,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 

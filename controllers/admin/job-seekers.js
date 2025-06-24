@@ -7,14 +7,16 @@ export const getAllJobSeekers = async (req, res) => {
       page = 1,
       limit = 20,
       search = "",
-      sortBy = "name",
-      sortOrder = "asc",
+      sortBy = "updatedAt",
+      sortOrder = "desc",
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const sortField =
-      sortBy === "email" ? "registration.email" : "registration.fullName";
+    let sortField = "updatedAt";
+    if (sortBy === "email") sortField = "registration.email";
+    else if (sortBy === "name") sortField = "registration.fullName";
+
     const sortDirection = sortOrder === "desc" ? -1 : 1;
 
     const searchFilter = search
