@@ -7,14 +7,24 @@ export const getAllRecruiters = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit = 20,
       search = "",
-      sortBy = "name",
-      sortOrder = "asc",
+      sortBy = "updatedAt",
+      sortOrder = "desc",
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const sortField = sortBy === "email" ? "email" : "firstName";
+    const sortFieldMap = {
+      name: "firstName", // Could use a computed full name in future
+      email: "email",
+      phone: "mobileNumber",
+      location: "location",
+      company: "companyName",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+    };
+
+    const sortField = sortFieldMap[sortBy] || "updatedAt";
     const sortDirection = sortOrder === "desc" ? -1 : 1;
 
     const searchFilter = search
@@ -24,6 +34,7 @@ export const getAllRecruiters = async (req, res) => {
             { lastName: { $regex: search, $options: "i" } },
             { email: { $regex: search, $options: "i" } },
             { mobileNumber: { $regex: search, $options: "i" } },
+            { location: { $regex: search, $options: "i" } },
             { companyName: { $regex: search, $options: "i" } },
           ],
         }
@@ -44,6 +55,8 @@ export const getAllRecruiters = async (req, res) => {
           location: 1,
           companyName: 1,
           subscription: 1,
+          createdAt: 1,
+          updatedAt: 1,
         }),
     ]);
 
@@ -55,6 +68,8 @@ export const getAllRecruiters = async (req, res) => {
       location: item.location || "",
       companyName: item.companyName || "",
       subscription: item.subscription || "",
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
     }));
 
     return res.status(200).json({

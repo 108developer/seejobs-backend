@@ -1,5 +1,6 @@
 // controllers/jobController.js
 import mongoose from "mongoose";
+import slugify from "slugify";
 import Candidate from "../../models/candidate/candidateModel.js";
 import Application from "../../models/jobs/application.js";
 import JobListing from "../../models/jobs/jobsModel.js";
@@ -64,9 +65,22 @@ export const postJob = async (req, res) => {
 
     const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    const baseSlug = slugify(`${jobTitle}-${companyName}-${jobLocation}`, {
+      lower: true,
+      strict: true, // removes special chars
+    });
+
+    let uniqueSlug = baseSlug;
+    let counter = 1;
+
+    while (await JobListing.findOne({ url: uniqueSlug })) {
+      uniqueSlug = `${baseSlug}-${counter++}`;
+    }
+
     const jobData = {
       employer: userid,
       jobTitle,
+      url: uniqueSlug,
       // jobRole,
       // category,
       skillsRequired: skills,
@@ -115,7 +129,7 @@ export const postJob = async (req, res) => {
         for (const candidate of matchingCandidates) {
           const candidateEmail = candidate?.registration?.email;
           const subject = `New Job Posting: ${jobTitle}`;
-          const jobUrl = `${process.env.FRONTEND_URL}/Joblisting/${newJobListing._id}`;
+          const jobUrl = `${process.env.FRONTEND_URL}/joblisting/${newJobListing.url}`;
 
           const html = `
             <html>
@@ -544,7 +558,30 @@ export const getJobById = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Job not found", job });
     }
-    res.json({ success: true, job });
+
+    const applicationCount = await Application.countDocuments({ job: jobId });
+
+    res.json({ success: true, applicationCount, job });
+  } catch (error) {
+    console.error("Error fetching job details:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const getJobByUrl = async (req, res) => {
+  try {
+    const jobUrl = req.params.url;
+
+    const job = await JobListing.findOne({ url: jobUrl });
+    if (!job) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Job not found", job });
+    }
+
+    const applicationCount = await Application.countDocuments({ job: job._id });
+
+    res.json({ success: true, applicationCount, job });
   } catch (error) {
     console.error("Error fetching job details:", error);
     res.status(500).json({ success: false, message: "Internal server error" });

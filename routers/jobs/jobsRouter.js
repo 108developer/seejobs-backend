@@ -8,6 +8,7 @@ import {
   getJobApplicantsDetail,
   // getJobApplicants,
   getJobById,
+  getJobByUrl,
   getJobsApplications,
   getJobsAppliedByCandidate,
   getJobsPostedByRecruiter,
@@ -42,6 +43,8 @@ router.post("/postjobs", saveJobListing);
 router.get("/getjobs", getAllJobs);
 
 router.get("/getjob/:id", getJobById);
+
+router.get("/jobs/:url", getJobByUrl);
 
 router.get("/search", getSearchJobs);
 

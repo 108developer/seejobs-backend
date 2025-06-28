@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const candidateSchema = new mongoose.Schema(
   {
+    profileID: { type: String, unique: true },
     registration: {
       fullName: { type: String },
       email: { type: String, unique: true },
