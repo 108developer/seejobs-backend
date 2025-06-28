@@ -617,7 +617,7 @@ const RootMutation = new GraphQLObjectType({
           ];
 
           const application = await Application.findById(applicationId);
-          const employer = await Employer.findById(recruiterId);
+          const employer = await Employer.exists({ _id: recruiterId });
 
           if (!application || !employer) {
             return {
@@ -626,28 +626,23 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          const candidate = await Candidate.findById(application.candidate);
-          if (!candidate) {
+          const candidateId = application.candidate;
+          const candidateExists = await Candidate.exists({ _id: candidateId });
+          if (!candidateExists) {
             return {
               success: false,
               message: "Candidate not found.",
             };
           }
 
-          const viewResult = await handleResumeView(recruiterId, candidate._id);
+          // Deduct view
+          const viewResult = await handleResumeView(recruiterId, candidateId);
           if (!viewResult.success) return viewResult;
 
           const lowerStatus = status.toLowerCase();
-
-          if (contactActions.includes(lowerStatus)) {
-            return {
-              success: true,
-              message: `Contact (${lowerStatus}) revealed successfully.`,
-            };
-          }
-
-          const formattedStatus =
-            status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+          const formattedStatus = contactActions.includes(lowerStatus)
+            ? "Viewed"
+            : status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
           if (!validStatuses.includes(formattedStatus)) {
             return {
@@ -658,50 +653,68 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          const existingStatusIndex = candidate.statusBy.findIndex(
+          // Update Application status
+          await Application.updateOne(
+            { _id: applicationId },
+            { $set: { status: formattedStatus } }
+          );
+
+          // Update candidate.statusBy and jobs.appliedJobs using atomic update
+          const arrayFilters = [
+            { "job.job": application.job, "job.status": "Pending" },
+          ];
+
+          const update = {
+            $set: {
+              "jobs.appliedJobs.$[job].status": formattedStatus,
+            },
+          };
+
+          // Add statusBy update or push if not exists
+          const candidateDoc = await Candidate.findById(candidateId);
+          const hasRecruiterStatus = candidateDoc.statusBy.some(
             (entry) => entry.recruiter.toString() === recruiterId
           );
 
-          if (existingStatusIndex > -1) {
-            candidate.statusBy[existingStatusIndex].status = formattedStatus;
-            candidate.statusBy[existingStatusIndex].date = new Date();
-          } else {
-            candidate.statusBy.push({
-              recruiter: recruiterId,
+          if (hasRecruiterStatus) {
+            update.$set["statusBy.$[status]"] = {
               status: formattedStatus,
               date: new Date(),
-            });
-          }
-
-          const appliedJob = candidate.jobs.appliedJobs.find(
-            (job) => job.job.toString() === application.job.toString()
-          );
-
-          if (!appliedJob) {
-            return {
-              success: false,
-              message: "Job not found in candidate's applied jobs.",
+            };
+            arrayFilters.push({ "status.recruiter": recruiterId });
+          } else {
+            update.$push = {
+              statusBy: {
+                recruiter: recruiterId,
+                status: formattedStatus,
+                date: new Date(),
+              },
             };
           }
 
-          appliedJob.status = formattedStatus;
-
+          // Handle shortlist push (if needed)
           if (formattedStatus === "Shortlisted") {
-            candidate.jobs.shortlistedBy.push({
-              recruiter: recruiterId,
-              job: application.job,
-              date: new Date(),
-            });
+            update.$push = {
+              ...(update.$push || {}),
+              "jobs.shortlistedBy": {
+                recruiter: recruiterId,
+                job: application.job,
+                date: new Date(),
+              },
+            };
           }
 
-          application.status = formattedStatus;
+          await Candidate.updateOne({ _id: candidateId }, update, {
+            arrayFilters,
+          });
 
-          await candidate.save();
-          await application.save();
+          const contactRevealMessage = contactActions.includes(lowerStatus)
+            ? `Contact (${lowerStatus}) revealed and `
+            : "";
 
           return {
             success: true,
-            message: `Application status updated to ${formattedStatus}.`,
+            message: `${contactRevealMessage}Application status updated to ${formattedStatus}.`,
           };
         } catch (error) {
           console.error("Error updating job application status:", error);

@@ -565,10 +565,10 @@ const RootMutation = new GraphQLObjectType({
       },
       async resolve(_, { candidateId, status, recruiterId }) {
         try {
-          const candidate = await Candidate.findById(candidateId);
-          const employer = await Employer.findById(recruiterId);
+          const candidateExists = await Candidate.exists({ _id: candidateId });
+          const employerExists = await Employer.exists({ _id: recruiterId });
 
-          if (!candidate || !employer) {
+          if (!candidateExists || !employerExists) {
             return {
               success: false,
               message: "Candidate or employer not found.",
@@ -587,21 +587,12 @@ const RootMutation = new GraphQLObjectType({
             "Hired",
           ];
 
-          // Step 1: Deduct a view for both contact or status actions
           const viewResult = await handleResumeView(recruiterId, candidateId);
           if (!viewResult.success) return viewResult;
 
-          // Step 2: If it's a contact reveal (email/phone/whatsapp), we're done
-          if (contactActions.includes(lowerStatus)) {
-            return {
-              success: true,
-              message: `Contact (${lowerStatus}) revealed successfully.`,
-            };
-          }
-
-          // Step 3: If it's a status update (viewed, shortlisted, etc)
-          const formattedStatus =
-            status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+          const formattedStatus = contactActions.includes(lowerStatus)
+            ? "Viewed"
+            : status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
           if (!validStatuses.includes(formattedStatus)) {
             return {
@@ -612,28 +603,40 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          const existingStatusIndex = candidate.statusBy.findIndex(
-            (entry) => entry.recruiter.toString() === recruiterId
+          // Atomic update: try to update existing recruiter status in statusBy array and jobs.appliedJobs statuses
+          const arrayFilters = [{ "job.status": "Pending" }];
+
+          const updateResult = await Candidate.updateOne(
+            { _id: candidateId, "statusBy.recruiter": recruiterId },
+            {
+              $set: {
+                "statusBy.$.status": formattedStatus,
+                "statusBy.$.date": new Date(),
+                "jobs.appliedJobs.$[job].status": formattedStatus,
+              },
+            },
+            { arrayFilters }
           );
 
-          if (existingStatusIndex > -1) {
-            candidate.statusBy[existingStatusIndex].status = formattedStatus;
-            candidate.statusBy[existingStatusIndex].date = new Date();
-          } else {
-            candidate.statusBy.push({
-              recruiter: recruiterId,
-              status: formattedStatus,
-              date: new Date(),
-            });
+          // If recruiter entry does not exist, push new statusBy entry and update job statuses
+          if (updateResult.matchedCount === 0) {
+            await Candidate.updateOne(
+              { _id: candidateId },
+              {
+                $push: {
+                  statusBy: {
+                    recruiter: recruiterId,
+                    status: formattedStatus,
+                    date: new Date(),
+                  },
+                },
+                $set: {
+                  "jobs.appliedJobs.$[job].status": formattedStatus,
+                },
+              },
+              { arrayFilters }
+            );
           }
-
-          candidate.jobs.appliedJobs.forEach((job) => {
-            if (job.status === "Pending") {
-              job.status = formattedStatus;
-            }
-          });
-
-          await candidate.save();
 
           return {
             success: true,
