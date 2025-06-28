@@ -13,9 +13,17 @@ export const getAllJobSeekers = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    let sortField = "updatedAt";
-    if (sortBy === "email") sortField = "registration.email";
-    else if (sortBy === "name") sortField = "registration.fullName";
+    // Supported sort fields mapping
+    const sortFieldMap = {
+      name: "registration.fullName",
+      email: "registration.email",
+      phone: "registration.phone",
+      location: "registration.location",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+    };
+
+    const sortField = sortFieldMap[sortBy] || "updatedAt";
 
     const sortDirection = sortOrder === "desc" ? -1 : 1;
 
@@ -38,19 +46,25 @@ export const getAllJobSeekers = async (req, res) => {
         .limit(parseInt(limit))
         .select({
           _id: 1,
+          profileID: 1,
           "registration.fullName": 1,
           "registration.email": 1,
           "registration.phone": 1,
           "registration.location": 1,
+          createdAt: 1,
+          updatedAt: 1,
         }),
     ]);
 
     const jobSeekers = data.map((item) => ({
-      id: item._id,
+      candidateId: item._id,
+      profileID: item.profileID,
       fullName: item.registration?.fullName || "",
       email: item.registration?.email || "",
       phone: item.registration?.phone || "",
       location: item.registration?.location || "",
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
     }));
 
     return res.status(200).json({

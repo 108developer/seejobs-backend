@@ -13,6 +13,7 @@ import Candidate from "../models/candidate/candidateModel.js";
 import Employer from "../models/employer/employerModel.js";
 import Application from "../models/jobs/application.js";
 import JobListing from "../models/jobs/jobsModel.js";
+import { handleResumeView } from "../utils/handleResumeAccess.js";
 
 function calculateAge(dob) {
   const diff = Date.now() - dob.getTime();
@@ -360,43 +361,44 @@ const RootQuery = new GraphQLObjectType({
             }
           }
 
-          if (recruiterId && mongoose.Types.ObjectId.isValid(recruiterId)) {
-            const matchStage = { $match: { $and: filters } };
+          if (mongoose.Types.ObjectId.isValid(jobId)) {
+            const statusAggregationFilters = [
+              { job: new mongoose.Types.ObjectId(jobId) },
+            ];
 
-            const unwindStage = { $unwind: "$statusBy" };
+            // ❗ Uncomment the below only if recruiter is stored in Application documents
+            // if (recruiterId && mongoose.Types.ObjectId.isValid(recruiterId)) {
+            //   statusAggregationFilters.push({
+            //     recruiter: new mongoose.Types.ObjectId(recruiterId),
+            //   });
+            // }
 
-            const matchRecruiterStage = {
-              $match: {
-                "statusBy.recruiter": new mongoose.Types.ObjectId(recruiterId),
+            const aggregation = await Application.aggregate([
+              { $match: { $and: statusAggregationFilters } },
+              {
+                $group: {
+                  _id: {
+                    $toLower: {
+                      $ifNull: [{ $toString: "$status" }, ""],
+                    },
+                  },
+                  count: { $sum: 1 },
+                },
               },
-            };
-
-            const groupStage = {
-              $group: {
-                _id: "$statusBy.status",
-                count: { $sum: 1 },
-              },
-            };
-
-            const aggregation = await Candidate.aggregate([
-              matchStage,
-              unwindStage,
-              matchRecruiterStage,
-              groupStage,
             ]);
 
             for (const item of aggregation) {
               switch (item._id) {
-                case "Viewed":
+                case "viewed":
                   viewedCount = item.count;
                   break;
-                case "Shortlisted":
+                case "shortlisted":
                   shortlistedCount = item.count;
                   break;
-                case "Rejected":
+                case "rejected":
                   rejectedCount = item.count;
                   break;
-                case "Hold":
+                case "hold":
                   holdCount = item.count;
                   break;
               }
@@ -444,7 +446,13 @@ const RootQuery = new GraphQLObjectType({
                 as: "candidate",
               },
             },
-            { $unwind: "$candidate" },
+            {
+              $unwind: {
+                path: "$candidate",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+
             // {
             //   $lookup: {
             //     from: "answers",
@@ -598,6 +606,7 @@ const RootMutation = new GraphQLObjectType({
       },
       async resolve(_, { applicationId, status, recruiterId }) {
         try {
+          const contactActions = ["email", "phone", "whatsapp"];
           const validStatuses = [
             "Pending",
             "Viewed",
@@ -606,6 +615,37 @@ const RootMutation = new GraphQLObjectType({
             "Rejected",
             "Hired",
           ];
+
+          const application = await Application.findById(applicationId);
+          const employer = await Employer.findById(recruiterId);
+
+          if (!application || !employer) {
+            return {
+              success: false,
+              message: "Application or employer not found.",
+            };
+          }
+
+          const candidate = await Candidate.findById(application.candidate);
+          if (!candidate) {
+            return {
+              success: false,
+              message: "Candidate not found.",
+            };
+          }
+
+          const viewResult = await handleResumeView(recruiterId, candidate._id);
+          if (!viewResult.success) return viewResult;
+
+          const lowerStatus = status.toLowerCase();
+
+          if (contactActions.includes(lowerStatus)) {
+            return {
+              success: true,
+              message: `Contact (${lowerStatus}) revealed successfully.`,
+            };
+          }
+
           const formattedStatus =
             status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -618,21 +658,19 @@ const RootMutation = new GraphQLObjectType({
             };
           }
 
-          const application = await Application.findById(applicationId);
+          const existingStatusIndex = candidate.statusBy.findIndex(
+            (entry) => entry.recruiter.toString() === recruiterId
+          );
 
-          if (!application) {
-            return {
-              success: false,
-              message: "Application not found.",
-            };
-          }
-
-          const candidate = await Candidate.findById(application.candidate);
-          if (!candidate) {
-            return {
-              success: false,
-              message: "Candidate not found.",
-            };
+          if (existingStatusIndex > -1) {
+            candidate.statusBy[existingStatusIndex].status = formattedStatus;
+            candidate.statusBy[existingStatusIndex].date = new Date();
+          } else {
+            candidate.statusBy.push({
+              recruiter: recruiterId,
+              status: formattedStatus,
+              date: new Date(),
+            });
           }
 
           const appliedJob = candidate.jobs.appliedJobs.find(
@@ -642,13 +680,13 @@ const RootMutation = new GraphQLObjectType({
           if (!appliedJob) {
             return {
               success: false,
-              message: "Job application not found in candidate's applied jobs.",
+              message: "Job not found in candidate's applied jobs.",
             };
           }
 
           appliedJob.status = formattedStatus;
 
-          if (formattedStatus === "Shortlisted" && recruiterId) {
+          if (formattedStatus === "Shortlisted") {
             candidate.jobs.shortlistedBy.push({
               recruiter: recruiterId,
               job: application.job,
@@ -656,61 +694,17 @@ const RootMutation = new GraphQLObjectType({
             });
           }
 
-          const employer = await Employer.findById(recruiterId);
-          if (!employer) {
-            return {
-              success: false,
-              message: "Employer not found.",
-            };
-          }
-
-          if (formattedStatus === "Viewed") {
-            const subscription = employer.subscription;
-
-            if (!subscription) {
-              return {
-                success: false,
-                message:
-                  "You have reached your resume view limit. Please buy a subscription to view more resumes.",
-              };
-            }
-
-            if (subscription.status !== "Active") {
-              return {
-                success: false,
-                message:
-                  "Your subscription is not active. Please renew to view resumes.",
-              };
-            }
-
-            if (subscription.allowedResume <= 0) {
-              return {
-                success: false,
-                message:
-                  "You have reached your resume view limit. Please buy a subscription to view more resumes.",
-              };
-            }
-
-            subscription.allowedResume -= 1;
-
-            if (subscription.allowedResume === 0) {
-              subscription.plan = "Free";
-              subscription.status = "Expired";
-            }
-
-            await employer.save();
-          }
+          application.status = formattedStatus;
 
           await candidate.save();
-          application.status = formattedStatus;
           await application.save();
 
           return {
             success: true,
-            message: "Application status updated successfully.",
+            message: `Application status updated to ${formattedStatus}.`,
           };
         } catch (error) {
-          console.error("Error updating status:", error);
+          console.error("Error updating job application status:", error);
           return {
             success: false,
             message: "Internal server error.",

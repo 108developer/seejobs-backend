@@ -208,10 +208,21 @@ export const signup = async (req, res) => {
         .json({ message: "Email or Phone already exists." });
     }
 
+    const currentYear = moment().format("YYYY");
+    const countThisYear = await Candidate.countDocuments({
+      profileID: { $regex: `^${currentYear}-` },
+    });
+
+    const profileID = `${currentYear}-${String(countThisYear + 1).padStart(
+      2,
+      "0"
+    )}`;
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newCandidate = new Candidate({
+      profileID,
       registration: {
         fullName,
         email,
@@ -252,6 +263,7 @@ export const signup = async (req, res) => {
         "Candidate signed up successfully! Please complete your registration.",
       token,
       candidateId: newCandidate._id,
+      profileID: newCandidate.profileID,
       email: newCandidate.registration.email,
       phone: newCandidate.registration.phone,
       fullName: newCandidate.registration.fullName,
@@ -270,11 +282,11 @@ export const signup = async (req, res) => {
 };
 
 export const uploadResume = async (req, res) => {
-  const { username, email, phone, password } = req.body;
+  const { fullName, email, phone, password } = req.body;
   const resume = req.files?.resume?.[0];
 
   try {
-    if (!username || !email || !phone || !password) {
+    if (!fullName || !email || !phone || !password) {
       return res.status(400).json({ message: "All fields are required." });
     }
 
@@ -287,6 +299,16 @@ export const uploadResume = async (req, res) => {
         .status(400)
         .json({ message: "Email or Phone already exists." });
     }
+
+    const currentYear = moment().format("YYYY");
+    const countThisYear = await Candidate.countDocuments({
+      profileID: { $regex: `^${currentYear}-` },
+    });
+
+    const profileID = `${currentYear}-${String(countThisYear + 1).padStart(
+      2,
+      "0"
+    )}`;
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -302,8 +324,9 @@ export const uploadResume = async (req, res) => {
     }
 
     const newCandidate = new Candidate({
+      profileID,
       registration: {
-        fullName: username,
+        fullName,
         email,
         phone,
         password: hashedPassword,
@@ -330,7 +353,7 @@ export const uploadResume = async (req, res) => {
       plainPassword: password,
     });
 
-    await sendEmail({
+    sendEmail({
       to: email,
       subject: "Welcome to SeeJob - Your Account Has Been Created for Job!",
       text,
