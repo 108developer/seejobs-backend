@@ -32,6 +32,7 @@ import employerAuthRoute from "./routers/employer/employerAuthRoute.js";
 // Jobs & Search Routes
 import jobsRoutes from "./routers/jobs/jobsRouter.js";
 import searchQueriesRouter from "./routers/searchQueries.js";
+// import paymentRoutes from "./routers/paymentRoutes.js";
 import cronJobs from "./routers/cron-jobs.js";
 
 // Admin Routes
@@ -131,6 +132,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin/groupedFilterApi", groupedFilterApi);
 
 app.use("/searchQueries", searchQueriesRouter);
+// app.use("/api/payment", paymentRoutes);
 app.use("/cron-job", cronJobs);
 
 /* ───────────────────────────────────────────────────────────
