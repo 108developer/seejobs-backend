@@ -46,6 +46,13 @@ const employerSchema = new mongoose.Schema(
     skills: {
       type: [String],
     },
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
+    },
+    age: {
+      type: Number,
+    },
     companyName: {
       type: String,
     },
