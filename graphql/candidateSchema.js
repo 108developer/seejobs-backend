@@ -651,6 +651,145 @@ const RootMutation = new GraphQLObjectType({
         }
       },
     },
+
+    bulkUpdateCandidateStatus: {
+      type: new GraphQLObjectType({
+        name: "BulkUpdateStatusResponse",
+        fields: {
+          success: { type: GraphQLBoolean },
+          message: { type: GraphQLString },
+          updatedCount: { type: GraphQLInt },
+        },
+      }),
+      args: {
+        candidateIds: { type: new GraphQLList(GraphQLID) },
+        status: { type: GraphQLString },
+        recruiterId: { type: GraphQLID },
+      },
+      async resolve(_, { candidateIds, status, recruiterId }) {
+        try {
+          const recruiter = await Employer.findById(recruiterId);
+
+          if (!recruiter) {
+            return { success: false, message: "Recruiter not found." };
+          }
+
+          const planType = recruiter.subscription?.plan?.toLowerCase();
+          const subscriptionStatus =
+            recruiter.subscription?.status?.toLowerCase();
+          let allowedResumes = recruiter.subscription?.allowedResume || 0;
+
+          if (subscriptionStatus !== "active") {
+            return {
+              success: false,
+              message:
+                "Your subscription has expired. Please renew to continue downloading candidates.",
+            };
+          }
+
+          if (planType !== "premium") {
+            return {
+              success: false,
+              message:
+                "Please upgrade to a premium plan to download candidates.",
+            };
+          }
+
+          const formattedStatus =
+            status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+          const dateNow = new Date();
+          const arrayFilters = [{ "job.status": "Pending" }];
+          let updatedCount = 0;
+          let viewCount = 0;
+
+          // First count how many are newly viewed
+          for (const candidateId of candidateIds) {
+            const candidate = await Candidate.findById(candidateId);
+            if (!candidate) continue;
+
+            const existingView = candidate.statusBy.find(
+              (entry) =>
+                entry.recruiter.toString() === recruiterId.toString() &&
+                entry.status.toLowerCase() === "viewed"
+            );
+
+            if (!existingView) {
+              viewCount++;
+            }
+          }
+
+          if (allowedResumes < viewCount) {
+            return {
+              success: false,
+              message: `You can only download and update ${allowedResumes} new candidate(s).`,
+            };
+          }
+
+          // Perform updates
+          for (const candidateId of candidateIds) {
+            const candidate = await Candidate.findById(candidateId);
+            if (!candidate) continue;
+
+            const statusEntry = candidate.statusBy.find(
+              (entry) => entry.recruiter.toString() === recruiterId.toString()
+            );
+
+            let isAlreadyViewed = false;
+            if (statusEntry && statusEntry.status.toLowerCase() === "viewed") {
+              isAlreadyViewed = true;
+            }
+
+            const update = {
+              $set: {
+                "jobs.appliedJobs.$[job].status": formattedStatus,
+              },
+            };
+
+            if (!isAlreadyViewed) {
+              if (statusEntry) {
+                update.$set["statusBy.$[status]"] = {
+                  status: formattedStatus,
+                  date: dateNow,
+                };
+                arrayFilters.push({ "status.recruiter": recruiterId });
+              } else {
+                update.$push = {
+                  statusBy: {
+                    recruiter: recruiterId,
+                    status: formattedStatus,
+                    date: dateNow,
+                  },
+                };
+              }
+
+              recruiter.subscription.allowedResume -= 1;
+            }
+
+            await Candidate.updateOne({ _id: candidateId }, update, {
+              arrayFilters,
+            });
+
+            updatedCount++;
+          }
+
+          await recruiter.save();
+
+          return {
+            success: true,
+            message: `${updatedCount} candidate(s) updated to ${formattedStatus}.`,
+            updatedCount,
+          };
+        } catch (err) {
+          console.error("Bulk update error:", err);
+          return {
+            success: false,
+            message: "Internal server error.",
+            updatedCount: 0,
+          };
+        }
+      },
+    },
   },
 });
 

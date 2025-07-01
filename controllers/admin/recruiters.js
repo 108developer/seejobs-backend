@@ -55,6 +55,8 @@ export const getAllRecruiters = async (req, res) => {
           location: 1,
           companyName: 1,
           subscription: 1,
+          gender: 1,
+          age: 1,
           createdAt: 1,
           updatedAt: 1,
         }),
@@ -68,6 +70,8 @@ export const getAllRecruiters = async (req, res) => {
       location: item.location || "",
       companyName: item.companyName || "",
       subscription: item.subscription || "",
+      gender: item.gender || "",
+      age: item.age || null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     }));
