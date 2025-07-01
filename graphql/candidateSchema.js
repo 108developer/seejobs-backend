@@ -97,6 +97,7 @@ const RootQuery = new GraphQLObjectType({
           shortlistedCount: { type: GraphQLInt },
           rejectedCount: { type: GraphQLInt },
           holdCount: { type: GraphQLInt },
+          allowedResume: { type: GraphQLInt },
         },
       }),
       args: {
@@ -388,6 +389,15 @@ const RootQuery = new GraphQLObjectType({
             }
           }
 
+          let allowedResume = 0;
+
+          if (employerId) {
+            const employer = await Employer.findById(employerId).select(
+              "subscription.allowedResume"
+            );
+            allowedResume = employer?.subscription?.allowedResume || 0;
+          }
+
           // const totalCandidates = await Candidate.countDocuments(filters);
 
           // Step 2: Count stats using only base filters (no status filter)
@@ -477,7 +487,7 @@ const RootQuery = new GraphQLObjectType({
             let recruiterStatus = null;
             if (employerId) {
               const statusEntry = c.statusBy.find(
-                (entry) => entry.recruiter.toString() === employerId
+                (entry) => entry.recruiter?.toString() === employerId
               );
               recruiterStatus = statusEntry ? statusEntry.status : null;
             }
@@ -530,6 +540,7 @@ const RootQuery = new GraphQLObjectType({
             shortlistedCount,
             rejectedCount,
             holdCount,
+            allowedResume,
           };
         } catch (err) {
           console.error("❌ Error in getAllCandidates:", err);

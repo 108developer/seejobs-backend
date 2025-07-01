@@ -122,6 +122,7 @@ const RootQuery = new GraphQLObjectType({
           viewedCount: { type: GraphQLInt },
           rejectedCount: { type: GraphQLInt },
           holdCount: { type: GraphQLInt },
+          allowedResume: { type: GraphQLInt },
         },
       }),
       args: {
@@ -260,6 +261,15 @@ const RootQuery = new GraphQLObjectType({
           //     });
           //   }
           // }
+
+          let allowedResume = 0;
+
+          if (recruiterId) {
+            const employer = await Employer.findById(recruiterId).select(
+              "subscription.allowedResume"
+            );
+            allowedResume = employer?.subscription?.allowedResume || 0;
+          }
 
           if (isStringFilled(location)) {
             filters.push({
@@ -573,6 +583,7 @@ const RootQuery = new GraphQLObjectType({
             viewedCount,
             rejectedCount,
             holdCount,
+            allowedResume,
             jobApplications: sortedJobApplications,
           };
         } catch (err) {
