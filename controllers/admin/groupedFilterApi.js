@@ -8,12 +8,65 @@ import Skill from "../../models/queriesFilter/skillModel.js";
 import { bulkUploadUtils } from "../../utils/bulkUploadUtils.js";
 
 // Skill Endpoints
-export const bulkUploadSkills = bulkUploadUtils(
-  ["name"],
-  Skill,
-  "name",
-  (row) => ({ name: row.name })
-);
+// export const bulkUploadSkills = bulkUploadUtils(
+//   ["name"],
+//   Skill,
+//   "name",
+//   (row) => ({ name: row.name })
+// );
+export const bulkUploadSkills = async (req, res) => {
+  try {
+    const { skills } = req.body;
+
+    if (!skills || typeof skills !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "skills field is required as a string",
+      });
+    }
+
+    // Split by comma, &, $, or newline, then clean
+    const skillsArray = skills
+      .split(/[,&$\n]+/)
+      .map((skill) => skill.trim())
+      .filter(Boolean);
+
+    if (skillsArray.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid skills found in the input.",
+      });
+    }
+
+    const duplicates = [];
+    const addedSkills = [];
+
+    for (const name of skillsArray) {
+      const existing = await Skill.findOne({ name });
+
+      if (existing) {
+        duplicates.push(name);
+        continue;
+      }
+
+      const newSkill = new Skill({ name });
+      await newSkill.save();
+      addedSkills.push(name);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Added ${addedSkills.length} skills.`,
+      duplicates,
+    });
+  } catch (error) {
+    console.error("Bulk upload skills error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error during bulk skill upload",
+    });
+  }
+};
 
 export const getSkills = async (req, res) => {
   try {
@@ -137,15 +190,71 @@ export const deleteSkill = async (req, res) => {
 };
 
 // Job Title Endpoints
-export const bulkUploadJobTitles = bulkUploadUtils(
-  ["label"],
-  JobTitle,
-  "value",
-  (row) => ({
-    label: row.label,
-    value: row.label?.replace(/\s+/g, "_").toLowerCase(),
-  })
-);
+// export const bulkUploadJobTitles = bulkUploadUtils(
+//   ["label"],
+//   JobTitle,
+//   "value",
+//   (row) => ({
+//     label: row.label,
+//     value: row.label?.replace(/\s+/g, "_").toLowerCase(),
+//   })
+// );
+export const bulkUploadJobTitles = async (req, res) => {
+  try {
+    const { jobTitles } = req.body;
+
+    if (!jobTitles || typeof jobTitles !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "jobTitles field is required as a string",
+      });
+    }
+
+    // Split string by comma, &, $, or newline, then trim and filter out empty
+    const titlesArray = jobTitles
+      .split(/[,&$\n]+/)
+      .map((title) => title.trim())
+      .filter(Boolean);
+
+    if (titlesArray.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid job titles found in the input.",
+      });
+    }
+
+    const duplicates = [];
+    const addedJobTitles = [];
+
+    for (const label of titlesArray) {
+      const value = label.replace(/\s+/g, "_").toLowerCase();
+
+      // Check if job title already exists
+      const exists = await JobTitle.findOne({ value });
+      if (exists) {
+        duplicates.push(label);
+        continue;
+      }
+
+      // Save new job title
+      const newJobTitle = new JobTitle({ label, value });
+      await newJobTitle.save();
+      addedJobTitles.push(label);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Added ${addedJobTitles.length} job titles.`,
+      duplicates,
+    });
+  } catch (error) {
+    console.error("Bulk upload error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error during bulk upload",
+    });
+  }
+};
 
 export const getJobTitles = async (req, res) => {
   try {
