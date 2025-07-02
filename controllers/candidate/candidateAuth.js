@@ -18,6 +18,17 @@ import {
   uploadToCloudinary,
 } from "../../utils/cloudinary.js";
 
+const calculateAge = (dob) => {
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const getCloudinaryPublicId = (url) => {
   const decodedUrl = decodeURIComponent(url);
 
@@ -192,7 +203,7 @@ https://seejob.in`;
 
 // Modal Sign Up Controller
 export const signup = async (req, res) => {
-  const { fullName, email, phone, password } = req.body;
+  const { fullName, email, phone, password, location, gender, dob } = req.body;
 
   try {
     if (!fullName || !email || !phone || !password) {
@@ -228,9 +239,14 @@ export const signup = async (req, res) => {
         email,
         phone,
         password: hashedPassword,
+        location,
         role: "candidate",
       },
-      jobPreferences: {},
+      jobPreferences: {
+        gender,
+        dob,
+        age: dob ? calculateAge(dob) : null,
+      },
       candidateEducation: {},
       workExperience: [],
     });
@@ -250,13 +266,6 @@ export const signup = async (req, res) => {
       plainPassword: password,
     });
 
-    await sendEmail({
-      to: email,
-      subject: "Welcome to SeeJob - Your Account Has Been Created for Job!",
-      text,
-      html,
-    });
-
     res.status(201).json({
       success: true,
       message:
@@ -269,6 +278,13 @@ export const signup = async (req, res) => {
       fullName: newCandidate.registration.fullName,
       role: newCandidate.registration.role,
       expiresIn: "1h",
+    });
+
+    sendEmail({
+      to: email,
+      subject: "Welcome to SeeJob - Your Account Has Been Created for Job!",
+      text,
+      html,
     });
   } catch (error) {
     console.error("Error during registration:", error);
@@ -454,7 +470,7 @@ export const getCandidateProfile = async (req, res) => {
         preferredJobLocation:
           candidate.jobPreferences?.preferredJobLocation || [],
         gender: candidate.jobPreferences?.gender || "male",
-        dob: candidate.jobPreferences?.dob || new Date(),
+        dob: candidate.jobPreferences?.dob,
         currentSalary: candidate.jobPreferences?.currentSalary || null,
         expectedSalary: candidate.jobPreferences?.expectedSalary || null,
         maritalStatus: candidate.jobPreferences?.maritalStatus || "",

@@ -60,14 +60,14 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage }).single("file");
 
 // Skill Routes
-router.post("/skills/bulk-upload", upload, bulkUploadSkills);
+router.post("/skills/bulk-upload", bulkUploadSkills);
 router.get("/skills", getSkills);
 router.post("/skills", addSkill);
 router.put("/skills/:id", updateSkill);
 router.delete("/skills/:id", deleteSkill);
 
 // Job Title Routes
-router.post("/jobtitles/bulk-upload", upload, bulkUploadJobTitles);
+router.post("/jobtitles/bulk-upload", bulkUploadJobTitles);
 router.get("/jobtitles", getJobTitles);
 router.post("/jobtitles", addJobTitle);
 router.put("/jobtitles/:id", updateJobTitle);

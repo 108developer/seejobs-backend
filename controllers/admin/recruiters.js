@@ -27,18 +27,30 @@ export const getAllRecruiters = async (req, res) => {
     const sortField = sortFieldMap[sortBy] || "updatedAt";
     const sortDirection = sortOrder === "desc" ? -1 : 1;
 
+    const baseFilter = {};
+
+    if (["name", "email", "phone", "location"].includes(sortBy)) {
+      const fieldPath = sortFieldMap[sortBy];
+      baseFilter[fieldPath] = { $regex: ".*\\S.*", $exists: true };
+    }
+
     const searchFilter = search
       ? {
-          $or: [
-            { firstName: { $regex: search, $options: "i" } },
-            { lastName: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } },
-            { mobileNumber: { $regex: search, $options: "i" } },
-            { location: { $regex: search, $options: "i" } },
-            { companyName: { $regex: search, $options: "i" } },
+          $and: [
+            baseFilter,
+            {
+              $or: [
+                { firstName: { $regex: search, $options: "i" } },
+                { lastName: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+                { mobileNumber: { $regex: search, $options: "i" } },
+                { location: { $regex: search, $options: "i" } },
+                { companyName: { $regex: search, $options: "i" } },
+              ],
+            },
           ],
         }
-      : {};
+      : baseFilter;
 
     const [total, employers] = await Promise.all([
       Employer.countDocuments(searchFilter),

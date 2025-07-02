@@ -16,6 +16,7 @@ export const getAllJobSeekers = async (req, res) => {
     // Supported sort fields mapping
     const sortFieldMap = {
       name: "registration.fullName",
+      fullName: "registration.fullName",
       email: "registration.email",
       phone: "registration.phone",
       location: "registration.location",
@@ -27,21 +28,34 @@ export const getAllJobSeekers = async (req, res) => {
 
     const sortDirection = sortOrder === "desc" ? -1 : 1;
 
+    const baseFilter = {};
+
+    if (["fullName", "email", "phone", "location"].includes(sortBy)) {
+      const fieldPath = sortFieldMap[sortBy];
+      baseFilter[fieldPath] = { $regex: ".*\\S.*", $exists: true };
+    }
+
     const searchFilter = search
       ? {
-          $or: [
-            { "registration.fullName": { $regex: search, $options: "i" } },
-            { "registration.email": { $regex: search, $options: "i" } },
-            { "registration.phone": { $regex: search, $options: "i" } },
-            { "registration.location": { $regex: search, $options: "i" } },
+          $and: [
+            baseFilter,
+            {
+              $or: [
+                { "registration.fullName": { $regex: search, $options: "i" } },
+                { "registration.email": { $regex: search, $options: "i" } },
+                { "registration.phone": { $regex: search, $options: "i" } },
+                { "registration.location": { $regex: search, $options: "i" } },
+              ],
+            },
           ],
         }
-      : {};
+      : baseFilter;
 
     const [total, data] = await Promise.all([
       Candidate.countDocuments(searchFilter),
       Candidate.find(searchFilter)
         .sort({ [sortField]: sortDirection })
+        .collation({ locale: "en", strength: 2 })
         .skip(skip)
         .limit(parseInt(limit))
         .select({
