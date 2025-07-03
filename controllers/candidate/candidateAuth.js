@@ -533,7 +533,7 @@ export const getCandidateProfile = async (req, res) => {
 export const register = async (req, res) => {
   const {
     candidateId,
-    location,
+    // location,
     permanentAddress,
     minexp,
     maxexp,
@@ -548,7 +548,7 @@ export const register = async (req, res) => {
   try {
     if (
       !candidateId ||
-      !location ||
+      // !location ||
       !permanentAddress ||
       !minexp ||
       !maxexp ||
@@ -566,7 +566,7 @@ export const register = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found." });
     }
 
-    candidate.registration.location = location;
+    // candidate.registration.location = location;
     candidate.registration.permanentAddress = permanentAddress;
     candidate.registration.minexp = minexp;
     candidate.registration.maxexp = maxexp;
@@ -657,8 +657,8 @@ export const saveJobPreferences = async (req, res) => {
     preferredJobLocation,
     experienceYears,
     experienceMonths,
-    gender,
-    dob,
+    // gender,
+    // dob,
     maritalStatus,
     language,
     currentSalary,
@@ -692,8 +692,8 @@ export const saveJobPreferences = async (req, res) => {
         .json({ message: "Invalid preferred job location data" });
     }
 
-    const formattedDob = moment(dob, "DD/MM/YYYY").toDate();
-    const calculateAge = moment().diff(formattedDob, "years");
+    // const formattedDob = moment(dob, "DD/MM/YYYY").toDate();
+    // const calculateAge = moment().diff(formattedDob, "years");
 
     candidate.jobPreferences = {
       profilePic: profilePicResult || null,
@@ -702,9 +702,9 @@ export const saveJobPreferences = async (req, res) => {
       preferredJobLocation: validPreferredJobLocation,
       experienceYears,
       experienceMonths,
-      gender,
-      dob: formattedDob,
-      age: calculateAge,
+      // gender,
+      // dob: formattedDob,
+      // age: calculateAge,
       maritalStatus,
       language,
       currentSalary,
