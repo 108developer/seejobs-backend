@@ -38,7 +38,7 @@ const candidateSchema = new mongoose.Schema(
 
     candidateEducation: [
       {
-        educationLevel: { type: String, required: true },
+        educationLevel: { type: String },
         highestQualification: { type: String },
         boardOfEducation: { type: String },
         medium: { type: String },
