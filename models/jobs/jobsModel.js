@@ -24,6 +24,7 @@ const jobListingSchema = new Schema(
     },
     url: {
       type: String,
+      unique: true,
     },
     jobRole: {
       type: String,

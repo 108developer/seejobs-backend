@@ -7,6 +7,7 @@ import {
   getAllJobs,
   getJobApplicantsDetail,
   // getJobApplicants,
+  editJobById,
   getJobById,
   getJobByUrl,
   getJobsApplications,
@@ -39,6 +40,8 @@ router.post("/post-job", postJob);
 router.post("/autoApplyToJobs", autoApplyToJobs);
 
 router.post("/postjobs", saveJobListing);
+
+router.put("/edit-job/:id", editJobById);
 
 router.get("/getjobs", getAllJobs);
 
