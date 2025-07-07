@@ -10,8 +10,8 @@ const candidateSchema = new mongoose.Schema(
       password: { type: String },
       location: { type: String },
       permanentAddress: { type: String },
-      minexp: { type: Number },
-      maxexp: { type: Number },
+      yearExp: { type: Number },
+      monthExp: { type: Number },
       skills: { type: [String] },
       // industry: { type: String },
       resume: { type: String },
@@ -24,30 +24,30 @@ const candidateSchema = new mongoose.Schema(
       profilePic: { type: String },
       profileTitle: { type: String },
       jobRoles: { type: [String], max: 2 },
-      jobType: { type: String },
+      jobType: { type: [String] },
       preferredJobLocation: { type: [String] },
-      experience: {
-        years: { type: Number },
-        months: { type: Number },
-      },
       gender: { type: String },
       dob: { type: Date },
       age: { type: Number },
       currentSalary: { type: Number },
       expectedSalary: { type: Number },
       maritalStatus: { type: String },
-      language: { type: String },
+      language: { type: [String] },
       image: { type: String },
     },
 
-    candidateEducation: {
-      highestQualification: { type: String },
-      medium: { type: String },
-      boardOfEducation: { type: String },
-      percentage: { type: String },
-      yearOfEducation: { type: String },
-      educationMode: { type: String },
-    },
+    candidateEducation: [
+      {
+        educationLevel: { type: String, required: true },
+        highestQualification: { type: String },
+        boardOfEducation: { type: String },
+        medium: { type: String },
+        percentage: { type: Number },
+        educationMode: { type: String },
+        yearFrom: { type: String },
+        yearTo: { type: String },
+      },
+    ],
 
     workExperience: [
       {
@@ -63,6 +63,7 @@ const candidateSchema = new mongoose.Schema(
           type: String,
           enum: [
             "Immediate",
+            "15 Days",
             "30 Days",
             "45 Days",
             "60 Days",

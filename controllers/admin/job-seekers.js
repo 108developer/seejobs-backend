@@ -114,42 +114,94 @@ export const getAllJobs = async (req, res) => {
       sortBy = "updatedAt",
       sortOrder = "desc",
     } = req.query;
-
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sortDirection = sortOrder === "desc" ? -1 : 1;
-
     const searchRegex = new RegExp(search, "i");
 
-    const searchFilter = search
-      ? {
+    const pipeline = [
+      {
+        $lookup: {
+          from: "employers",
+          localField: "employer",
+          foreignField: "_id",
+          as: "employer",
+        },
+      },
+      { $unwind: { path: "$employer", preserveNullAndEmptyArrays: true } },
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
           $or: [
             { jobTitle: searchRegex },
             { jobLocation: searchRegex },
             { "employer.firstName": searchRegex },
+            { "employer.lastName": searchRegex },
             { companyName: searchRegex },
             { companyEmail: searchRegex },
             { companyPhone: searchRegex },
             { companyWebsite: searchRegex },
           ],
-        }
-      : {};
+        },
+      });
+    }
 
-    const [total, data] = await Promise.all([
-      JobListing.countDocuments(searchFilter),
-      JobListing.find(searchFilter)
-        .populate("employer", "firstName lastName email mobileNumber")
-        .sort({ [sortBy]: sortDirection })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select(
-          "_id jobTitle jobLocation deadline employer companyName companyEmail companyPhone companyWebsite"
-        ),
-    ]);
+    const countPipeline = [...pipeline, { $count: "total" }];
+    const countResult = await JobListing.aggregate(countPipeline);
+    const total = countResult[0]?.total || 0;
+
+    const sortFieldsMap = {
+      jobTitle: "jobTitle",
+      jobLocation: "jobLocation",
+      deadline: "deadline",
+      createdAt: "createdAt",
+      companyName: "companyName",
+      companyEmail: "companyEmail",
+      companyPhone: "companyPhone",
+      "employer.firstName": "employer.firstName",
+      "employer.lastName": "employer.lastName",
+      employerEmail: "employer.email",
+      employerPhone: "employer.mobileNumber",
+    };
+
+    const sortField = sortFieldsMap[sortBy] || "updatedAt";
+
+    pipeline.push({ $sort: { [sortField]: sortDirection } });
+    pipeline.push({ $skip: skip });
+    pipeline.push({ $limit: parseInt(limit) });
+    pipeline.push({
+      $project: {
+        _id: 1,
+        jobTitle: 1,
+        jobLocation: 1,
+        deadline: 1,
+        companyName: 1,
+        companyEmail: 1,
+        companyPhone: 1,
+        companyWebsite: 1,
+        url: 1,
+        status: 1,
+        createdAt: 1,
+        employer: {
+          _id: "$employer._id",
+          firstName: "$employer.firstName",
+          lastName: "$employer.lastName",
+          email: "$employer.email",
+          mobileNumber: "$employer.mobileNumber",
+        },
+      },
+    });
+
+    const data = await JobListing.aggregate(pipeline);
 
     const jobs = data.map((job) => ({
       id: job._id,
       jobTitle: job.jobTitle,
       jobLocation: job.jobLocation,
+      url: job.url,
+      status: job.status,
+      createdAt: job.createdAt,
       deadline: job.deadline,
       employer: {
         id: job.employer?._id,
@@ -177,7 +229,7 @@ export const getAllJobs = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Internal Error:", error);
+    console.error(error);
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });

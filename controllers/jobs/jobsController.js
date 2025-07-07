@@ -15,6 +15,7 @@ export const postJob = async (req, res) => {
     // category,
     skills,
     jobType,
+    degreeLevel,
     jobDescription,
     jobLocation,
     openings,
@@ -40,6 +41,7 @@ export const postJob = async (req, res) => {
     // if (!category) missingFields.push("Category");
     if (!skills || skills.length === 0) missingFields.push("Skills");
     if (!jobType || jobType.length === 0) missingFields.push("Job Type");
+    if (!degreeLevel) missingFields.push("Degree Level");
     if (!jobDescription) missingFields.push("Job Description");
     if (!jobLocation) missingFields.push("Job Location");
     if (typeof openings !== "number" || openings < 1)
@@ -85,6 +87,7 @@ export const postJob = async (req, res) => {
       // category,
       skillsRequired: skills,
       jobType,
+      degreeLevel,
       jobDescription,
       jobLocation,
       openings,
@@ -545,6 +548,110 @@ export const getAllJobs = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export const editJobById = async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    userid,
+    jobTitle,
+    skillsRequired,
+    jobType,
+    degreeLevel,
+    jobDescription,
+    jobLocation,
+    openings,
+    monthlySalary,
+    experience,
+    education,
+    companyName,
+    companyEmail,
+    companyPhone,
+    companyWebsite,
+    companyDescription,
+    questions = [],
+    status,
+    url,
+  } = req.body;
+
+  try {
+    if (!id) return res.status(400).json({ message: "Job ID is required." });
+
+    const missingFields = [];
+
+    if (!userid) missingFields.push("Employer ID");
+    if (!jobTitle) missingFields.push("Job Title");
+    if (!skillsRequired || skillsRequired.length === 0)
+      missingFields.push("Skills");
+    if (!jobType || jobType.length === 0) missingFields.push("Job Type");
+    if (!degreeLevel) missingFields.push("Degree Level");
+    if (!jobDescription) missingFields.push("Job Description");
+    if (!jobLocation) missingFields.push("Job Location");
+    if (typeof openings !== "number" || openings < 1)
+      missingFields.push("Openings");
+    if (!monthlySalary?.min || !monthlySalary?.max)
+      missingFields.push("Salary Range");
+    if (!experience?.min || !experience?.max)
+      missingFields.push("Experience Range");
+    if (!education) missingFields.push("Education");
+    if (!companyName) missingFields.push("Company Name");
+    if (!companyEmail) missingFields.push("Company Email");
+    if (!companyPhone) missingFields.push("Company Phone");
+    if (!companyDescription) missingFields.push("Company Description");
+    if (!url) missingFields.push("Job URL");
+
+    if (missingFields.length > 0) {
+      return res
+        .status(400)
+        .json({ message: `Missing fields: ${missingFields.join(", ")}` });
+    }
+
+    const job = await JobListing.findById(id);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found." });
+    }
+
+    const existingUrl = await JobListing.findOne({ url, _id: { $ne: id } });
+    if (existingUrl) {
+      return res
+        .status(409)
+        .json({ message: "URL is already in use by another job." });
+    }
+
+    Object.assign(job, {
+      employer: userid,
+      jobTitle,
+      url,
+      skillsRequired,
+      jobType,
+      degreeLevel,
+      jobDescription,
+      jobLocation,
+      openings,
+      monthlySalary,
+      experience,
+      education,
+      companyName,
+      companyEmail,
+      companyPhone,
+      companyWebsite: companyWebsite?.trim() || "",
+      companyDescription,
+      questions,
+      status: status || "open",
+    });
+
+    await job.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Job updated successfully.",
+      job,
+    });
+  } catch (error) {
+    console.error("Error updating job:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 

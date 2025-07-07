@@ -111,7 +111,7 @@ const RootQuery = new GraphQLObjectType({
     getDegree: {
       type: new GraphQLList(DegreeType),
       resolve(parent, args) {
-        return Degree.find();
+        return Degree.find().sort({ label: 1 });
       },
     },
     searchSkills: {

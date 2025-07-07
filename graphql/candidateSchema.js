@@ -232,7 +232,16 @@ const RootQuery = new GraphQLObjectType({
             baseFilters["jobPreferences.jobType"] = { $in: jobTypes };
           }
 
-          if (isStringFilled(degree)) {
+          // if (isStringFilled(degree)) {
+          //   baseFilters["candidateEducation.highestQualification"] = {
+          //     $regex: degree,
+          //     $options: "i",
+          //   };
+          // }
+
+          if (degree === "Any") {
+            delete baseFilters["candidateEducation.highestQualification"];
+          } else if (degree && degree.trim() !== "") {
             baseFilters["candidateEducation.highestQualification"] = {
               $regex: degree,
               $options: "i",

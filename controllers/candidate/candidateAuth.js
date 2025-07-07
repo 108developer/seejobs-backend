@@ -455,8 +455,8 @@ export const getCandidateProfile = async (req, res) => {
         phone: candidate.registration.phone,
         location: candidate.registration.location,
         permanentAddress: candidate.registration.permanentAddress,
-        minexp: candidate.registration.minexp,
-        maxexp: candidate.registration.maxexp,
+        yearExp: candidate.registration.yearExp,
+        monthExp: candidate.registration.monthExp,
         skills: candidate.registration.skills,
         // industry: candidate.registration.industry,
         jobDescription: candidate.registration.jobDescription,
@@ -477,15 +477,7 @@ export const getCandidateProfile = async (req, res) => {
         language: candidate.jobPreferences?.language || "",
         jobRoles: candidate.jobPreferences?.jobRoles || [],
       },
-      candidateEducation: {
-        highestQualification:
-          candidate.candidateEducation?.highestQualification || "",
-        medium: candidate.candidateEducation?.medium || "",
-        boardOfEducation: candidate.candidateEducation?.boardOfEducation || "",
-        percentage: candidate.candidateEducation?.percentage || "",
-        yearOfEducation: candidate.candidateEducation?.yearOfEducation || "",
-        educationMode: candidate.candidateEducation?.educationMode || "",
-      },
+      candidateEducation: candidate.candidateEducation || [],
       workExperience: candidate.workExperience || [],
     };
 
@@ -535,8 +527,8 @@ export const register = async (req, res) => {
     candidateId,
     // location,
     permanentAddress,
-    minexp,
-    maxexp,
+    yearExp,
+    monthExp,
     skills,
     // industry,
     jobDescription,
@@ -550,8 +542,8 @@ export const register = async (req, res) => {
       !candidateId ||
       // !location ||
       !permanentAddress ||
-      !minexp ||
-      !maxexp ||
+      !yearExp ||
+      !monthExp ||
       !skills ||
       // !industry ||
       !jobDescription ||
@@ -568,8 +560,8 @@ export const register = async (req, res) => {
 
     // candidate.registration.location = location;
     candidate.registration.permanentAddress = permanentAddress;
-    candidate.registration.minexp = minexp;
-    candidate.registration.maxexp = maxexp;
+    candidate.registration.yearExp = yearExp;
+    candidate.registration.monthExp = monthExp;
     candidate.registration.skills = skills;
     // candidate.registration.industry = industry;
     candidate.registration.jobDescription = jobDescription;
@@ -607,8 +599,8 @@ export const updateRegistration = async (req, res) => {
     phone,
     location,
     permanentAddress,
-    minexp,
-    maxexp,
+    yearExp,
+    monthExp,
     skills,
     // industry,
     jobDescription,
@@ -629,8 +621,8 @@ export const updateRegistration = async (req, res) => {
     candidate.registration.phone = phone;
     candidate.registration.location = location;
     candidate.registration.permanentAddress = permanentAddress;
-    candidate.registration.minexp = minexp;
-    candidate.registration.maxexp = maxexp;
+    candidate.registration.yearExp = yearExp;
+    candidate.registration.monthExp = monthExp;
     candidate.registration.skills = skills;
     // candidate.registration.industry = industry;
     candidate.registration.jobDescription = jobDescription;
@@ -655,10 +647,6 @@ export const saveJobPreferences = async (req, res) => {
     profileTitle,
     jobType,
     preferredJobLocation,
-    experienceYears,
-    experienceMonths,
-    // gender,
-    // dob,
     maritalStatus,
     language,
     currentSalary,
@@ -692,21 +680,19 @@ export const saveJobPreferences = async (req, res) => {
         .json({ message: "Invalid preferred job location data" });
     }
 
-    // const formattedDob = moment(dob, "DD/MM/YYYY").toDate();
-    // const calculateAge = moment().diff(formattedDob, "years");
+    let validJobType = Array.isArray(jobType) ? jobType : JSON.parse(jobType);
+
+    let validLanguage = Array.isArray(language)
+      ? language
+      : JSON.parse(language);
 
     candidate.jobPreferences = {
       profilePic: profilePicResult || null,
       profileTitle,
-      jobType,
+      jobType: validJobType,
       preferredJobLocation: validPreferredJobLocation,
-      experienceYears,
-      experienceMonths,
-      // gender,
-      // dob: formattedDob,
-      // age: calculateAge,
       maritalStatus,
-      language,
+      language: validLanguage,
       currentSalary,
       expectedSalary,
     };
@@ -801,98 +787,54 @@ export const updateJobPreferences = async (req, res) => {
 
 // Registration Controller - Step - 3
 export const saveEducationalDetails = async (req, res) => {
-  const {
-    candidateId,
-    highestQualification,
-    medium,
-    boardOfEducation,
-    percentage,
-    yearOfEducation,
-    educationMode,
-  } = req.body;
-
   try {
-    const missingFields = [];
+    const { candidateId, educationalEntries } = req.body;
 
-    if (!highestQualification) missingFields.push("employerId");
-    if (!medium) missingFields.push("jobTitle");
-    if (!boardOfEducation) missingFields.push("jobType");
-    if (!percentage) missingFields.push("jobRole");
-    if (!yearOfEducation) missingFields.push("minSalary");
-    if (!educationMode) missingFields.push("maxSalary");
-
-    if (missingFields.length > 0) {
-      return res
-        .status(400)
-        .json({ message: `Missing fields: ${missingFields.join(", ")}` });
+    if (!candidateId || !Array.isArray(educationalEntries)) {
+      return res.status(400).json({ message: "Invalid input" });
     }
 
     const candidate = await Candidate.findById(candidateId);
-
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
-    // Check if the candidate already has this education record
-    candidate.candidateEducation = {
-      highestQualification,
-      medium,
-      boardOfEducation,
-      percentage,
-      yearOfEducation,
-      educationMode,
-    };
-
+    candidate.candidateEducation.push(...educationalEntries);
     await candidate.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Educational details saved successfully!",
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to save educational details." });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 // Update Educational Details Controller
 export const updateEducationalDetails = async (req, res) => {
-  const { userId, token } = req.params;
-  const {
-    highestQualification,
-    medium,
-    boardOfEducation,
-    percentage,
-    yearOfEducation,
-    educationMode,
-  } = req.body;
+  const { userId } = req.params;
+  const { educationalEntries } = req.body;
 
-  try {
-    const candidate = await Candidate.findById(userId);
-    if (!candidate) {
-      return res.status(404).json({ message: "Candidate not found" });
-    }
-
-    // Update educational details
-    candidate.candidateEducation = {
-      highestQualification,
-      medium,
-      boardOfEducation,
-      percentage,
-      yearOfEducation,
-      educationMode,
-    };
-
-    await candidate.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Educational details updated successfully!",
-    });
-  } catch (error) {
-    console.error("Error during updating educational details:", error);
-    res.status(500).json({ message: "Failed to update educational details." });
+  if (!Array.isArray(educationalEntries)) {
+    return res
+      .status(400)
+      .json({ message: "Invalid input. Must be an array." });
   }
+
+  const candidate = await Candidate.findById(userId);
+  if (!candidate) {
+    return res.status(404).json({ message: "Candidate not found" });
+  }
+
+  candidate.candidateEducation = educationalEntries;
+  await candidate.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Educational details updated successfully!",
+  });
 };
 
 export const getJobPreferences = async (req, res) => {
@@ -922,7 +864,7 @@ export const getEducationalDetails = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
-    res.status(200).json(candidate.educationalDetails);
+    res.status(200).json(candidate.candidateEducation);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to get educational details." });
@@ -1366,6 +1308,7 @@ export const updateWorkExperience = async (req, res) => {
 
     const allowedNoticePeriods = [
       "Immediate",
+      "15 Days",
       "30 Days",
       "45 Days",
       "60 Days",
