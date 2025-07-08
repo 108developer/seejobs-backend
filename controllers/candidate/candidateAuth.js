@@ -523,56 +523,60 @@ export const getCandidateProfile = async (req, res) => {
 
 // Registration Controller - Step - 1
 export const register = async (req, res) => {
+  const requiredFields = [
+    "candidateId",
+    "permanentAddress",
+    "yearExp",
+    "monthExp",
+    "profileTitle",
+    "skills",
+    "jobDescription",
+    "terms",
+  ];
+
+  const missingFields = requiredFields.filter((field) => !req.body[field]);
+  if (missingFields.length > 0) {
+    return res.status(400).json({
+      message: `Missing fields: ${missingFields.join(", ")}`,
+    });
+  }
+
   const {
     candidateId,
-    // location,
     permanentAddress,
     yearExp,
     monthExp,
+    profileTitle,
     skills,
-    // industry,
     jobDescription,
     terms,
   } = req.body;
 
-  const { resume } = req.files;
+  const { resume } = req.files || {};
 
   try {
-    if (
-      !candidateId ||
-      // !location ||
-      !permanentAddress ||
-      !yearExp ||
-      !monthExp ||
-      !skills ||
-      // !industry ||
-      !jobDescription ||
-      !terms
-    ) {
-      return res.status(400).json({ message: "All fields are required." });
-    }
-
     const candidate = await Candidate.findById(candidateId);
 
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found." });
     }
 
-    // candidate.registration.location = location;
-    candidate.registration.permanentAddress = permanentAddress;
-    candidate.registration.yearExp = yearExp;
-    candidate.registration.monthExp = monthExp;
-    candidate.registration.skills = skills;
-    // candidate.registration.industry = industry;
-    candidate.registration.jobDescription = jobDescription;
-    candidate.registration.terms = terms;
+    Object.assign(candidate.registration, {
+      permanentAddress,
+      yearExp,
+      monthExp,
+      profileTitle,
+      skills,
+      jobDescription,
+      terms,
+    });
 
-    if (resume && resume.length > 0) {
+    if (resume?.length > 0) {
       const [resumeResult] = await Promise.all([
         uploadToCloudinary(
           resume[0].buffer,
           "see_job_candidate_resumes",
-          candidate.registration.email + "_resume"
+          `${candidate.registration.email}_resume`
         ),
       ]);
       candidate.registration.resume = resumeResult.secure_url;
@@ -580,13 +584,15 @@ export const register = async (req, res) => {
 
     await candidate.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Registration completed successfully!",
     });
   } catch (error) {
-    console.error("Error during registration:", error);
-    res.status(500).json({ message: "Failed to complete registration." });
+    console.error("Registration error:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to complete registration." });
   }
 };
 
@@ -644,7 +650,7 @@ export const updateRegistration = async (req, res) => {
 export const saveJobPreferences = async (req, res) => {
   const {
     candidateId,
-    profileTitle,
+    // profileTitle,
     jobType,
     preferredJobLocation,
     maritalStatus,
@@ -688,7 +694,7 @@ export const saveJobPreferences = async (req, res) => {
 
     candidate.jobPreferences = {
       profilePic: profilePicResult || null,
-      profileTitle,
+      // profileTitle,
       jobType: validJobType,
       preferredJobLocation: validPreferredJobLocation,
       maritalStatus,
