@@ -5,6 +5,11 @@ import Candidate from "../../models/candidate/candidateModel.js";
 import Application from "../../models/jobs/application.js";
 import JobListing from "../../models/jobs/jobsModel.js";
 import { sendEmail } from "../../services/emailService.js";
+import {
+  buildAutoAppliedNotificationEmail,
+  buildCandidateJobAppliedEmail,
+  buildRecruiterJobNotificationEmail,
+} from "../../templates/mail-templates.js";
 
 // Controller function to save a new job listing
 export const postJob = async (req, res) => {
@@ -295,9 +300,35 @@ export const applyToJob = async (req, res) => {
 
     await candidate.save();
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Application submitted successfully." });
+    res.status(200).json({
+      success: true,
+      message: "Application submitted successfully.",
+    });
+
+    const recruiterEmailContent = buildRecruiterJobNotificationEmail({
+      candidate,
+      job,
+    });
+
+    await sendEmail({
+      to: job.employer.email,
+      subject: recruiterEmailContent.subject,
+      text: recruiterEmailContent.text,
+      html: recruiterEmailContent.html,
+    });
+
+    // Send confirmation email to candidate
+    const candidateEmailContent = buildCandidateJobAppliedEmail({
+      candidate,
+      job,
+    });
+
+    await sendEmail({
+      to: candidate.registration.email,
+      subject: candidateEmailContent.subject,
+      text: candidateEmailContent.text,
+      html: candidateEmailContent.html,
+    });
   } catch (err) {
     console.error("Error applying to job:", err);
     return res
@@ -313,15 +344,15 @@ export const autoApplyToJobs = async (req, res) => {
     const cursor = JobListing.find({ status: "open" }).cursor();
 
     for await (const job of cursor) {
+      const existingCandidateIds = await Application.find({
+        job: job._id,
+      }).distinct("candidate");
+
       const pipeline = [
         {
           $match: {
             "registration.skills": { $in: job.skillsRequired },
-            _id: {
-              $nin: await Application.find({ job: job._id }).distinct(
-                "candidate"
-              ),
-            },
+            _id: { $nin: existingCandidateIds },
           },
         },
         {
@@ -338,7 +369,10 @@ export const autoApplyToJobs = async (req, res) => {
         { $sort: { priority: -1 } },
         { $sample: { size: numberOfCandidates } },
       ];
+
       const candidates = await Candidate.aggregate(pipeline);
+
+      if (!candidates.length) continue;
 
       const apps = candidates.map((c) => ({
         job: job._id,
@@ -347,6 +381,7 @@ export const autoApplyToJobs = async (req, res) => {
         answers: [],
         status: "Pending",
       }));
+
       await Application.insertMany(apps);
 
       const bulkOps = candidates.map((c) => ({
@@ -363,12 +398,30 @@ export const autoApplyToJobs = async (req, res) => {
           },
         },
       }));
-      if (bulkOps.length) {
-        await Candidate.bulkWrite(bulkOps);
-      }
+
+      await Candidate.bulkWrite(bulkOps);
+
+      // Send recruiter notification email asynchronously
+      setImmediate(async () => {
+        try {
+          const recruiterEmailContent = buildAutoAppliedNotificationEmail({
+            job,
+            candidates,
+          });
+
+          await sendEmail({
+            to: job.employer.email,
+            subject: recruiterEmailContent.subject,
+            text: recruiterEmailContent.text,
+            html: recruiterEmailContent.html,
+          });
+        } catch (emailErr) {
+          console.error("Email error (auto-apply):", emailErr);
+        }
+      });
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: `Auto-applied ${numberOfCandidates} candidates for each active job.`,
     });
