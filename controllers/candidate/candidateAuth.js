@@ -565,11 +565,13 @@ export const register = async (req, res) => {
       permanentAddress,
       yearExp,
       monthExp,
-      profileTitle,
       skills,
       jobDescription,
       terms,
     });
+
+    candidate.jobPreferences = candidate.jobPreferences || {};
+    candidate.jobPreferences.profileTitle = profileTitle;
 
     if (resume?.length > 0) {
       const [resumeResult] = await Promise.all([
@@ -693,7 +695,7 @@ export const saveJobPreferences = async (req, res) => {
       : JSON.parse(language);
 
     candidate.jobPreferences = {
-      profilePic: profilePicResult || null,
+      profilePic: profilePicResult ? profilePicResult.secure_url : null,
       // profileTitle,
       jobType: validJobType,
       preferredJobLocation: validPreferredJobLocation,
@@ -800,6 +802,28 @@ export const saveEducationalDetails = async (req, res) => {
       return res.status(400).json({ message: "Invalid input" });
     }
 
+    for (let entry of educationalEntries) {
+      const { educationLevel, yearOfPassing, yearFrom, yearTo } = entry;
+
+      if (
+        ["High School", "Intermediate"].includes(educationLevel) &&
+        !yearOfPassing
+      ) {
+        return res.status(400).json({
+          message: `Year of Passing is required for ${educationLevel}`,
+        });
+      }
+
+      if (
+        !["High School", "Intermediate"].includes(educationLevel) &&
+        (!yearFrom || !yearTo)
+      ) {
+        return res.status(400).json({
+          message: `Year From and To are required for ${educationLevel}`,
+        });
+      }
+    }
+
     const candidate = await Candidate.findById(candidateId);
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found" });
@@ -827,6 +851,28 @@ export const updateEducationalDetails = async (req, res) => {
     return res
       .status(400)
       .json({ message: "Invalid input. Must be an array." });
+  }
+
+  for (let entry of educationalEntries) {
+    const { educationLevel, yearOfPassing, yearFrom, yearTo } = entry;
+
+    if (
+      ["High School", "Intermediate"].includes(educationLevel) &&
+      !yearOfPassing
+    ) {
+      return res.status(400).json({
+        message: `Year of Passing is required for ${educationLevel}`,
+      });
+    }
+
+    if (
+      !["High School", "Intermediate"].includes(educationLevel) &&
+      (!yearFrom || !yearTo)
+    ) {
+      return res.status(400).json({
+        message: `Year From and To are required for ${educationLevel}`,
+      });
+    }
   }
 
   const candidate = await Candidate.findById(userId);

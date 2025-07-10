@@ -10,6 +10,82 @@ import {
   storeOTP,
 } from "../../services/otpService.js";
 
+const buildEmployerWelcomeEmail = ({
+  firstName,
+  lastName,
+  email,
+  mobileNumber,
+  companyName,
+  plainPassword,
+}) => {
+  const fullName = `${firstName} ${lastName}`;
+  const text = `Hi ${fullName},
+
+Welcome to SeeJob as a valued employer!
+
+Your employer account has been successfully created. Here are your login details:
+
+Email: ${email}
+Phone: ${mobileNumber}
+Password: ${plainPassword}
+
+Visit your dashboard at: ${process.env.FRONTEND_URL}/employer
+
+Why SeeJob for Employers?
+
+SeeJob helps you find the right candidates faster — with smart filters, resume views, and direct communication. No clutter, just quality hiring tools.
+
+Get started by posting a job, viewing candidates, or upgrading your plan for more reach.
+
+If your password doesn’t work, use "Forgot Password" to reset it.
+
+Best regards,  
+The SeeJob Team  
+https://seejob.in`;
+
+  const html = `
+  <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        .container { background-color: #ffffff; max-width: 600px; margin: 30px auto; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 10px; }
+        p { color: #555; line-height: 1.6; }
+        .credentials { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #007BFF; margin: 20px 0; border-radius: 5px; }
+        .btn { background-color: #007BFF; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 20px; }
+        .footer { text-align: center; font-size: 12px; color: #888; margin-top: 40px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Welcome to SeeJob, ${fullName}!</h1>
+        <p>Thanks for signing up as an employer at <strong>SeeJob.in</strong>.</p>
+
+        <div class="credentials">
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Phone:</strong> ${mobileNumber}</p>
+          <p><strong>Password:</strong> ${plainPassword}</p>
+        </div>
+
+        <p>Manage your postings and find candidates by clicking below:</p>
+        <a href="${
+          process.env.FRONTEND_URL
+        }/employer" class="btn">Go to Employer Dashboard</a>
+
+        <p>Need help? Visit our help center or reply to this email.</p>
+
+        <p class="footer">
+          &copy; ${new Date().getFullYear()} SeeJob | 
+          <a href="https://seejob.in" style="color: #007BFF;">seejob.in</a> | All rights reserved
+        </p>
+      </div>
+    </body>
+  </html>
+  `;
+
+  return { text, html };
+};
+
 export const register = async (req, res) => {
   const requiredFields = [
     "firstName",
@@ -113,6 +189,15 @@ export const register = async (req, res) => {
       { expiresIn: "1h" }
     );
 
+    const { text, html } = buildEmployerWelcomeEmail({
+      firstName,
+      lastName,
+      email,
+      mobileNumber,
+      companyName,
+      plainPassword: password,
+    });
+
     res.status(201).json({
       success: true,
       message:
@@ -126,6 +211,13 @@ export const register = async (req, res) => {
       companyName: newEmployer.companyName,
       role: newEmployer.role,
       expiresIn: "1h",
+    });
+
+    sendEmail({
+      to: email,
+      subject: "Welcome to SeeJob - Your Account is Ready!",
+      text,
+      html,
     });
   } catch (error) {
     console.error("Error during employer signup:", error);

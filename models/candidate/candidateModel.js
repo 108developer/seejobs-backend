@@ -46,6 +46,7 @@ const candidateSchema = new mongoose.Schema(
         educationMode: { type: String },
         yearFrom: { type: String },
         yearTo: { type: String },
+        yearOfPassing: { type: String },
       },
     ],
 
@@ -62,6 +63,7 @@ const candidateSchema = new mongoose.Schema(
         noticePeriod: {
           type: String,
           enum: [
+            "",
             "Immediate",
             "15 Days",
             "30 Days",
@@ -70,6 +72,7 @@ const candidateSchema = new mongoose.Schema(
             "75 Days",
             "90 Days",
           ],
+          required: false,
         },
       },
     ],
