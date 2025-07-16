@@ -17,6 +17,7 @@ const candidateSchema = new mongoose.Schema(
       resume: { type: String },
       jobDescription: { type: String },
       terms: { type: Boolean },
+      lastLogin: { type: Date },
       role: { type: String, default: "candidate" },
     },
 
