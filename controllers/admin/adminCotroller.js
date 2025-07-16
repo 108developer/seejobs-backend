@@ -269,7 +269,7 @@ export const adminLogin = async (req, res) => {
       adminName: admin.adminName,
       adminEmail: admin.adminEmail,
       adminPhone: admin.adminPhone,
-      role: "admin",
+      role: admin.role,
     });
   } catch (error) {
     console.error(error);
