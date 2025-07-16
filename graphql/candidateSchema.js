@@ -149,7 +149,7 @@ const RootQuery = new GraphQLObjectType({
           if (freshness) {
             const freshnessFilter = getFreshnessFilter(freshness);
             if (freshnessFilter) {
-              baseFilters.updatedAt = freshnessFilter;
+              baseFilters["registration.lastLogin"] = freshnessFilter;
             }
           }
 
@@ -526,7 +526,7 @@ const RootQuery = new GraphQLObjectType({
               board: c.candidateEducation.boardOfEducation,
               medium: c.candidateEducation.medium,
               mode: c.candidateEducation.educationMode,
-              updatedAt: c.updatedAt,
+              updatedAt: c.registration?.lastLogin || c.updatedAt,
               recruiterStatus,
             };
           });
@@ -717,64 +717,82 @@ const RootMutation = new GraphQLObjectType({
 
           const formattedStatus =
             status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-
           const dateNow = new Date();
           const arrayFilters = [{ "job.status": "Pending" }];
-          let updatedCount = 0;
-          let viewCount = 0;
 
-          // First count how many are newly viewed
-          for (const candidateId of candidateIds) {
-            const candidate = await Candidate.findById(candidateId);
-            if (!candidate) continue;
+          const candidates = await Candidate.find({
+            _id: { $in: candidateIds },
+          });
+          const recruiterIdStr = recruiterId.toString();
 
-            const existingView = candidate.statusBy.find(
-              (entry) =>
-                entry.recruiter.toString() === recruiterId.toString() &&
-                entry.status.toLowerCase() === "viewed"
-            );
+          const lockedStatuses = ["shortlisted", "rejected", "hold"];
+          let newViews = 0;
 
-            if (!existingView) {
-              viewCount++;
+          for (const candidate of candidates) {
+            const currentStatus = candidate.statusBy
+              .find((entry) => entry.recruiter.toString() === recruiterIdStr)
+              ?.status?.toLowerCase();
+
+            if (
+              !currentStatus ||
+              !["viewed", ...lockedStatuses].includes(currentStatus)
+            ) {
+              newViews++;
             }
           }
 
-          if (allowedResumes < viewCount) {
+          if (newViews > allowedResumes) {
             return {
               success: false,
               message: `You can only download and update ${allowedResumes} new candidate(s).`,
+              updatedCount: 0,
             };
           }
 
-          // Perform updates
-          for (const candidateId of candidateIds) {
-            const candidate = await Candidate.findById(candidateId);
-            if (!candidate) continue;
+          let viewCount = 0;
+          const bulkOps = [];
 
-            const statusEntry = candidate.statusBy.find(
-              (entry) => entry.recruiter.toString() === recruiterId.toString()
+          for (const candidate of candidates) {
+            const recruiterStatusEntry = candidate.statusBy.find(
+              (entry) => entry.recruiter.toString() === recruiterIdStr
             );
 
-            let isAlreadyViewed = false;
-            if (statusEntry && statusEntry.status.toLowerCase() === "viewed") {
-              isAlreadyViewed = true;
+            const currentStatus =
+              recruiterStatusEntry?.status?.toLowerCase() || null;
+
+            if (["shortlisted", "rejected", "hold"].includes(currentStatus)) {
+              continue;
+            }
+
+            const isAlreadyViewed = currentStatus === "viewed";
+
+            if (!isAlreadyViewed && allowedResumes <= 0) {
+              continue;
             }
 
             const update = {
-              $set: {
-                "jobs.appliedJobs.$[job].status": formattedStatus,
+              updateOne: {
+                filter: { _id: candidate._id },
+                update: {
+                  $set: {
+                    "jobs.appliedJobs.$[job].status": formattedStatus,
+                  },
+                },
+                arrayFilters: [...arrayFilters],
               },
             };
 
             if (!isAlreadyViewed) {
-              if (statusEntry) {
-                update.$set["statusBy.$[status]"] = {
+              if (recruiterStatusEntry) {
+                update.updateOne.update.$set["statusBy.$[status]"] = {
                   status: formattedStatus,
                   date: dateNow,
                 };
-                arrayFilters.push({ "status.recruiter": recruiterId });
+                update.updateOne.arrayFilters.push({
+                  "status.recruiter": recruiterId,
+                });
               } else {
-                update.$push = {
+                update.updateOne.update.$push = {
                   statusBy: {
                     recruiter: recruiterId,
                     status: formattedStatus,
@@ -783,22 +801,29 @@ const RootMutation = new GraphQLObjectType({
                 };
               }
 
-              recruiter.subscription.allowedResume -= 1;
+              allowedResumes--;
+              viewCount++;
             }
 
-            await Candidate.updateOne({ _id: candidateId }, update, {
-              arrayFilters,
-            });
-
-            updatedCount++;
+            bulkOps.push(update);
           }
 
+          if (bulkOps.length === 0) {
+            return {
+              success: false,
+              message: "No candidates were eligible for status update.",
+              updatedCount: 0,
+            };
+          }
+
+          await Candidate.bulkWrite(bulkOps);
+          recruiter.subscription.allowedResume -= viewCount;
           await recruiter.save();
 
           return {
             success: true,
-            message: `${updatedCount} candidate(s) updated to ${formattedStatus}.`,
-            updatedCount,
+            message: `${bulkOps.length} candidate(s) updated to ${formattedStatus}.`,
+            updatedCount: bulkOps.length,
           };
         } catch (err) {
           console.error("Bulk update error:", err);

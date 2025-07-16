@@ -412,6 +412,9 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    candidate.registration.lastLogin = new Date();
+    await candidate.save();
+
     const token = jwt.sign({ id: candidate._id }, "yourSecretKey", {
       expiresIn: "1h",
     });
@@ -424,7 +427,6 @@ export const login = async (req, res) => {
       email: candidate.registration.email,
       phone: candidate.registration.phone,
       fullName: candidate.registration.fullName,
-      phone: candidate.registration.phone,
       role: candidate.registration.role,
     });
   } catch (error) {
@@ -465,6 +467,7 @@ export const getCandidateProfile = async (req, res) => {
         resume: candidate.registration.resume || null,
       },
       jobPreferences: {
+        profilePic: candidate.jobPreferences?.profilePic || "",
         profileTitle: candidate.jobPreferences?.profileTitle || "",
         jobType: candidate.jobPreferences?.jobType || "",
         preferredJobLocation:
@@ -565,7 +568,7 @@ export const register = async (req, res) => {
       permanentAddress,
       yearExp,
       monthExp,
-      skills,
+      skills: typeof skills === "string" ? JSON.parse(skills) : skills,
       jobDescription,
       terms,
     });
