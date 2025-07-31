@@ -38,6 +38,7 @@ import cronJobs from "./routers/cron-jobs.js";
 // Admin Routes
 import adminRoutes from "./routers/admin/adminRoutes.js";
 import groupedFilterApi from "./routers/admin/groupedFilterApi.js";
+import blogRoutes from "./routers/blogRoutes.js";
 
 /* ──────────────────────────────────────────────────
  *                GraphQL Schemas & Middleware
@@ -87,6 +88,10 @@ app.use(morgan("dev"));
 
 app.use(express.json());
 
+// app.use(bodyParser.json({ limit: '10mb' }));
+// app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+// app.use(express.json({ limit: '10mb' }));
+
 const allowedOrigins = [
   "http://localhost:3000",
   "https://www.seejob.in",
@@ -130,6 +135,7 @@ app.use("/api/candidateAuth", authRoutes);
 app.use("/api/jobs", jobsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/groupedFilterApi", groupedFilterApi);
+app.use("/api/blog", blogRoutes);
 
 app.use("/searchQueries", searchQueriesRouter);
 // app.use("/api/payment", paymentRoutes);
