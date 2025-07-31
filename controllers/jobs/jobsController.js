@@ -70,7 +70,7 @@ export const postJob = async (req, res) => {
         .json({ message: `Missing fields:- ${missingFields.join(", ")}` });
     }
 
-    const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const deadline = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
     const baseSlug = slugify(`${jobTitle}-${companyName}-${jobLocation}`, {
       lower: true,
